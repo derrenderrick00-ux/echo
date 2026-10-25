@@ -1,0 +1,14 @@
+{
+  "name": "echo-personal-agent",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Local-first personal AI agent \u2014 architecture and CLI scaffold",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "start": "node src/echo.js",
+    "test": "node --test"
+  }
+}

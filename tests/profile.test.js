@@ -30,3 +30,9 @@ test('corrupt profile gets a clear error', async () => {
     await assert.rejects(loadProfile(file), /invalid JSON/);
   });
 });
+
+test('identity instruction distinguishes Derrick from Echo', () => {
+  const prompt = makeSystemPrompt({ displayName: 'Derrick' });
+  assert.match(prompt, /Derrick is the HUMAN user and creator of Echo/);
+  assert.match(prompt, /Echo is the digital assistant, NOT Derrick/);
+});

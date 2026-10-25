@@ -29,3 +29,25 @@ test('empty model response is rejected', async () => {
   const provider = new OllamaProvider({ fetchImpl: async () => ({ ok: true, json: async () => ({ message: { content: ' ' } }) }) });
   await assert.rejects(provider.chat([{ role: 'user', content: 'hi' }]), /empty response/);
 });
+
+test('streamed response forwards tokens in order and keeps complete answer', async () => {
+  const chunks = [
+    '{"message":{"content":"Hello "},"done":false}\n{"message":{"content":"Der',
+    'rick"},"done":false}\n{"done":true}\n',
+  ];
+  const provider = new OllamaProvider({ fetchImpl: async (url, options) => {
+    assert.equal(JSON.parse(options.body).stream, true);
+    return { ok: true, body: (async function* () { for (const c of chunks) yield Buffer.from(c); })() };
+  }});
+  let seen = '';
+  const answer = await provider.chat([{ role: 'user', content: 'hi' }], { onToken: token => { seen += token; } });
+  assert.equal(answer, 'Hello Derrick');
+  assert.equal(seen, 'Hello Derrick');
+});
+
+test('prematurely terminated stream is rejected', async () => {
+  const provider = new OllamaProvider({ fetchImpl: async () => ({ ok: true,
+    body: (async function* () { yield Buffer.from('{"message":{"content":"part"}}\n'); })(),
+  }) });
+  await assert.rejects(provider.chat([{ role: 'user', content: 'hi' }], { onToken() {} }), /prematurely/);
+});

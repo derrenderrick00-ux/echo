@@ -1,44 +1,53 @@
-# Phase 0 — Foundation (Week 1–2)
+# Phase 0 — Foundation (Week 1–2 in original roadmap)
 
-**Status:** In progress. Milestones 0.2 and 0.3 implemented in code; local acceptance testing pending.  
-**Source:** Echo Master Document, Part 1, §5 (specification v1.3).
+**Status:** Implementation ready; acceptance testing pending on the developer's Ubuntu device.  
+**Source of requirements:** Echo Master Document, Part 1, §5, specification v1.3.
 
-## Deliverables
+## Milestones and acceptance
 
-- [x] Install and validate local LLM runtime (Ollama). *(Developer confirmed.)*
-- [x] Select and locally test a small model. *(Developer confirmed Milestone 0.1 complete.)*
-- [x] Implement an Ollama provider and a real text conversation CLI. *(Code ready; live test on developer machine pending.)*
-- [x] Implement private personal-profile loading and personality context. *(Code ready; populate and test your own profile.)*
-- [ ] Implement persistent note storage and semantic/vector retrieval (Milestone 0.4).
-- [ ] Deliver an on-demand daily routine summary (Milestone 0.5).
-- [ ] Verify all Phase 0 acceptance criteria offline.
+- [x] **0.1:** Local Ollama installed and small model tested (developer confirmed).
+- [x] **0.2:** Ollama-backed text CLI; model response verified by developer in v0.0.2.
+- [x] **0.3:** Private profile loaded in v0.0.2; developer verified `/profile` and personalized priorities.
+- [x] **0.4 implementation:** Explicit saved notes, persistent tasks, local vector search (all-minilm) and keyword fallback. Automated tests pass.
+- [x] **0.5 implementation:** On-demand routine snapshot and test coverage; output includes saved tasks/profile goals, not invented reminders.
+- [ ] **Acceptance test:** Verify memory survives restart, semantic retrieval works after pulling `all-minilm`, `/routine` reads live user tasks, and fully local operation works with networking disabled.
+- [ ] **Acceptance test:** Evaluate CPU/RAM consumption on the ThinkPad X280, ensure no critical errors or corruption.
 
-## Current commands
+**Exit criterion from master specification:** Chat with a local model that reflects basic personal style and can retrieve notes. The routine summary must be available on request.
 
-- `/help`: print commands
-- `/status`: display the six phases
-- `/model`: show model setting
-- `/profile`: show whether a private profile was loaded
-- `/reset`: forget current-session dialogue
-- `/exit` or `exit`: quit
-
-## Implementation notes
-
-- `src/echo.js` is only the bootstrap entry point.
-- `src/phases/phase-00.js` wires the Phase 0 conversation service.
-- `src/providers/ollama.js` calls the local Ollama API (`POST /api/chat`).
-- `src/core/conversation.js` keeps a bounded, **RAM-only** chat history; it is not durable memory.
-- `src/memory/profile.js` reads `config/profile.json` locally; real profile data is excluded from Git.
-- The model cannot yet save notes, schedule reminders, search the internet, or execute commands.
-- Phase 0 remains **in progress** until semantic retrieval and on-demand routine briefing work.
-
-## Verification
+## Practical user test
 
 ```bash
-npm install
+ollama pull all-minilm
+cd ~/Documents/echo
 npm test
-ollama list
 npm start
 ```
 
-Inside Echo: `/profile`, `/model`, then ask two linked questions, `/reset`, and test again.
+```text
+/identity
+/remember Express.js is a backend web framework I'm learning.
+/notes
+/recall backend framework
+/task add Study Express.js for 30 minutes
+/task list
+/routine
+/reset
+/exit
+```
+
+Start Echo again and repeat `/notes`, `/task list`, `/recall backend framework`. Verify saved entries persist. To complete a task use `/task done <id>` (get ID from `/task list`). For note removal use `/forget <id>` (get ID from `/notes`).
+
+For strict offline testing, make sure Ollama uses local models, then disconnect the network **after** downloading both models and verify a local chat and `/recall` still work.
+
+## Observed defects in v0.0.2 and mitigations
+
+- **Derrick/Echo identity confusion:** strengthened system identity instructions plus deterministic `/identity` and `whoami`. The model can still make mistakes.
+- **Missing recent Express.js mention:** latest user message/history still sent; prompt reinforced and recent-note retrieval improved. Not a guaranteed fix for weak-model reasoning.
+- **Slow CPU inference:** streaming tokens + shorter configurable responses/context; reduces perceived delay, not hardware computation cost.
+- **Overclaiming abilities:** explicit reminder that conversation does not save data and tasks are not alarms.
+
+## Deferred
+
+- Calendar sync, reminders/notifications, local STT/TTS, richer conversation handling: **Phase 1**.
+- Model fine-tuning/training, encrypted at-rest storage, system-level autonomous actions, cross-device synchronization and cloud features: **later**, with separate acceptance criteria.

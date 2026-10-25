@@ -1,20 +1,20 @@
 import { ConversationSession } from '../core/conversation.js';
 
-// Phase 0 integrates existing modules. Later phases reuse them.
 export const phase00 = Object.freeze({
   id: 0,
-  name: 'Foundation: local chat and profile',
-  status: 'in-progress',
+  name: 'Foundation: local chat, profile, memory and routine',
+  status: 'in-progress', // Remains pending until live offline acceptance test.
 });
 
-export function createPhase00({ provider, profile, maxTurns }) {
-  return new ConversationSession({ provider, profile, maxTurns });
+export function createPhase00({ provider, profile, memory, maxTurns }) {
+  return new ConversationSession({ provider, profile, memory, maxTurns });
 }
 
 export function phase00Help() {
   return [
-    'Commands: /help  /status  /model  /profile  /reset  /exit',
-    'Type a message to speak to your local Ollama model.',
-    'Chat history is session-only. Persistent memory and note retrieval are NOT implemented yet.',
+    'Commands: /help /status /model /profile /identity /reset /exit',
+    'Memory: /remember <note>  /notes  /recall <query>  /forget <note-id>  /index',
+    'Tasks: /task add <task>  /task list  /task done <task-id>  /routine',
+    'Ordinary chat does NOT automatically save new memories. /reset clears only temporary chat history.',
   ].join('\n');
 }

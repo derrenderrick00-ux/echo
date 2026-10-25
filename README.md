@@ -1,35 +1,64 @@
-# Echo — Personal AI Agent
+# Echo — Local-first Personal AI Agent
 
-> **Status:** Phase 0 in progress · **Version:** 0.0.1 (repository scaffold, not an AI release)
+**Version:** v0.0.2 · **Development phase:** 0 — Foundation · **Implemented:** Milestones 0.2 and 0.3
 
-Echo is a modular, **offline-first** personal AI agent intended to become a digital extension of its user. It is designed to support natural conversations, personal memory, daily routines, coding assistance, and—over time—permission-controlled autonomous actions across **Ubuntu, Windows, and Android**.
+Echo is a modular personal AI assistant intended to become a digital extension of its user. The project aims to support offline conversation, personal memory, scheduling, coding, approved autonomous actions, and eventually cross-device functionality on Ubuntu, Windows, and Android.
 
-The definitive product scope and phase exit criteria are in `Echo_Master_Document.md` (maintained privately unless deliberately redacted for publication). This repository currently contains the **initial architecture and runnable CLI scaffold**. It does **not** yet provide AI conversation, semantic memory, voice, or autonomous actions.
+> **Current reality:** Echo can converse with an installed **local Ollama model** from the terminal and incorporate a **private JSON personal profile** into its replies. Session history is kept in RAM only. Echo cannot yet save notes, retrieve them semantically, make calls, control your OS, or act autonomously.
 
-## Principles
+## Stack
 
-- **Local-first:** personal data is processed and stored on-device by default.
-- **Modular:** interfaces, agent logic, memory, model adapters, and tools remain separate.
-- **Permission-gated:** meaningful side effects require approval and an audit trail.
-- **One capability at a time:** new phases reuse existing modules instead of replacing Echo.
-- **Honest milestones:** planned features are never marked implemented without tests.
+- **Runtime:** Node.js 24, JavaScript ES modules (no additional npm dependencies).
+- **AI:** Ollama HTTP API on local loopback (`127.0.0.1:11434`), default model `llama3.2:1b`.
+- **Interface:** Terminal (CLI).
+- **Profile:** `config/profile.json` (private, ignored by Git).
+- **Later:** Persistent notes and vector search (0.4), routine summary (0.5), voice (Phase 1), multi-device (Phase 3).
 
-## Technology decisions
+## Requirements
 
-| Area | Initial choice | Status |
-| --- | --- | --- |
-| Core | JavaScript ES modules + Node.js 24 | Scaffold ready |
-| Developer OS | Ubuntu (native installation) | Ready |
-| Interface | Terminal/CLI | Skeleton ready |
-| Local AI | Ollama adapter, with a small locally tested model | Planned, Phase 0 |
-| Personal profile | Local JSON (example template only in Git) | Planned, Phase 0 |
-| Notes and search | Local storage + embeddings/vector retrieval | Planned, Phase 0 |
-| Structured data | SQLite | Planned as needs grow |
-| Voice | Local STT/TTS | Phase 1 |
-| Cross-device clients and sync | Android, Windows, Ubuntu | Phase 3 |
-| Languages beyond JS | Python or native code only when needed | Optional |
+1. Ubuntu with Node.js 24+, npm and Git.
+2. Ollama installed and running locally.
+3. A locally downloaded model. For the default: `ollama pull llama3.2:1b`.
 
-**Hardware note:** An 8 GB RAM laptop may require a small quantized model. Ollama and the eventual model are not bundled in this repo. Performance and model compatibility still require local testing.
+## Run on Ubuntu
+
+```bash
+cd ~/Documents/echo
+npm install
+cp -n .env.example .env
+cp -n config/profile.example.json config/profile.json
+nano config/profile.json        # Replace placeholders; never commit personal data
+npm test
+npm start
+```
+
+`cp -n` avoids overwriting files you already customized. The private profile is optional; if absent, Echo starts in generic mode and tells you.
+
+### Commands inside Echo
+
+| Command | Behavior |
+| --- | --- |
+| `/help` | List commands |
+| `/status` | Show all phase statuses |
+| `/model` | Show selected model |
+| `/profile` | Confirm local profile loaded |
+| `/reset` | Erase current in-memory conversation |
+| `/exit` or `exit` | Quit the application |
+
+Example interaction (illustrative):
+
+```text
+$ npm start
+Echo v0.0.2 — Phase 0: local AI + personal profile
+you> /profile
+Private profile loaded for Example User.
+you> Hi Echo, what are we working on?
+echo> Thinking locally...
+echo> ... (model-generated answer)
+you> /exit
+```
+
+If Ollama is unavailable, run `systemctl status ollama`. If your model is missing, run `ollama pull llama3.2:1b`. Running on an 8 GB ThinkPad's CPU can result in slower responses. First execution can be especially slow.
 
 ## Project layout
 
@@ -37,92 +66,72 @@ The definitive product scope and phase exit criteria are in `Echo_Master_Documen
 echo/
 ├── README.md
 ├── package.json
-├── .gitignore
 ├── .env.example
+├── .gitignore
 ├── config/
-│   └── profile.example.json
+│   ├── profile.example.json
+│   └── profile.json          # PRIVATE; ignored by Git
 ├── src/
-│   ├── echo.js                # Single application entry point
-│   ├── phases/
-│   │   ├── index.js           # Phase registry
-│   │   ├── phase-00.js        # Foundation (active scaffold)
-│   │   ├── phase-01.js        # Offline core, routine, voice
-│   │   ├── phase-02.js        # Coding, ideation, personalization
-│   │   ├── phase-03.js        # Hybrid autonomy and multi-device
-│   │   ├── phase-04.js        # Telephony
-│   │   └── phase-05.js        # Hardening and optimization
-│   ├── core/                  # Conversation orchestration and policies (future)
-│   ├── interfaces/            # CLI, then other user interfaces (future)
-│   ├── providers/             # Local and online model adapters (future)
-│   ├── memory/                # Profiles, history, semantic retrieval (future)
-│   └── tools/                 # Approval-gated capabilities (future)
+│   ├── echo.js              # Entry point
+│   ├── phases/              # Phase 0–5 integration and definitions
+│   ├── core/
+│   │   ├── config.js
+│   │   └── conversation.js
+│   ├── interfaces/
+│   │   └── cli.js
+│   ├── memory/
+│   │   └── profile.js
+│   ├── providers/
+│   │   └── ollama.js
+│   └── tools/                # Future gated actions
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   └── phases/                # Requirements and exit criteria per phase
+│   └── phases/
 ├── tests/
-└── data/                      # Local private state; ignored by Git
+└── data/                     # Future local memory; ignored by Git
 ```
 
-**Why phases have their own files:** `phase-XX.js` files identify what each milestone introduces and eventually wire together the necessary services. **They should not contain all the implementation code.** For example, a memory component introduced in Phase 0 stays in `src/memory/` and remains usable in later phases.
+Phases are integration modules, not duplicates of the entire application. The main entry point remains `src/echo.js`.
 
-## Getting started (Ubuntu)
+## Security / privacy
 
-Prerequisites: Node.js 24+, npm, Git.
+- The Ollama URL is restricted to HTTP loopback (`127.0.0.1`, `localhost`, `::1`) through Echo's startup configuration.
+- Requests to Ollama include your selected profile and conversation content. These are processed by the local Ollama service. Cloud models are not used by Echo's code in this release.
+- In the Ollama application, disable any optional cloud processing and do not select `:cloud` models when seeking strict offline processing.
+- Do not commit `.env`, `config/profile.json`, or files under `data/`. Check with `git check-ignore .env config/profile.json`.
+- Do not paste API keys or passwords into your profile.
+- The model's output is text only. It cannot execute the actions it may describe.
 
-```bash
-# In the root of the repository you already created:
-npm install
-npm start
-```
+## Phase roadmap (from the project master specification)
 
-Inside the prototype CLI, use `/help`, `/status`, and `/exit`. The placeholder is intentionally explicit that AI chat is **not connected**.
+- [ ] **Phase 0 — Foundation:** local LLM, private profile, semantic note retrieval, local text chat, on-demand routine summary.
+- [ ] **Phase 1 — Offline core, routine and conversation:** multi-turn robustness, tasks/calendar, local voice, summaries.
+- [ ] **Phase 2 — Coding and personalization:** code assistance with sandboxed execution, ideation, decision journal.
+- [ ] **Phase 3 — Hybrid autonomy and multi-device:** action loops, consent, encrypted synchronization, online tools.
+- [ ] **Phase 4 — Telephony:** consent-based call handling.
+- [ ] **Phase 5 — Hardening:** performance, privacy, testing and optimization.
 
-Check project status without entering the CLI:
+### Milestone status
 
-```bash
-npm start -- --status
-```
+| Milestone | Status |
+| --- | --- |
+| 0.1 Ollama installation and model test | Complete (confirmed by developer) |
+| 0.2 Ollama provider + actual text chat | Implemented; verify live on your machine |
+| 0.3 Local profile + personality prompt | Implemented; populate local profile and verify |
+| 0.4 Persistent notes + semantic retrieval | Not started |
+| 0.5 On-demand routine summary + acceptance tests | Not started |
 
-Run the included tests:
+See [`docs/phases/phase-00.md`](docs/phases/phase-00.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Test and commit
 
 ```bash
 npm test
+node src/echo.js --status
+git status
+git add README.md .env.example package.json package-lock.json config/profile.example.json src docs/ARCHITECTURE.md docs/phases/phase-00.md tests
+git commit -m "feat: connect local Ollama chat and private profile"
+git push
 ```
 
-> `npm install` currently installs no third-party packages. Do not install Ollama or download an AI model until choosing and testing a model appropriate for your hardware.
-
-## Roadmap (from Echo master specification v1.3)
-
-- [ ] **Phase 0 — Foundation:** Ollama/local LLM, structured personal profile, vector note retrieval, text conversation, on-demand daily routine summary. **Exit:** locally chat with a personalized model that retrieves notes.
-- [ ] **Phase 1 — Offline core, routines & natural conversation:** multi-turn context, calendar/tasks, proactive briefings, local speech input/output, note summaries, basic decision support.
-- [ ] **Phase 2 — Coding, ideation & deeper personalization:** sandboxed code execution, idea scoring, decision journal, stronger long-term memory.
-- [ ] **Phase 3 — Hybrid autonomy & multi-device:** approved background agent loop, encrypted sync, online integrations, action logs.
-- [ ] **Phase 4 — Telephony:** confirmed outbound calls, policy-controlled inbound calls, voice dialogue, safe fallback and testing.
-- [ ] **Phase 5 — Hardening:** resource optimization, privacy/security safeguards, evaluation and long-term maintenance.
-
-Phase details and acceptance criteria: [`docs/phases/`](docs/phases/)  
-Design rationale and module boundaries: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-
-## Phase 0 progress
-
-- [x] Choose Ubuntu as primary development environment.
-- [x] Confirm Node.js, npm, Git, VS Code, and Python are available.
-- [x] Establish repository scaffold and initial architecture.
-- [ ] Select/install/test a local model using Ollama.
-- [ ] Implement conversational input and local model adapter.
-- [ ] Add a private personal profile and personality layer.
-- [ ] Implement note storage and semantic search.
-- [ ] Produce an on-demand daily routine summary.
-- [ ] Test Phase 0 acceptance criteria.
-
-## Privacy and security
-
-- Never commit `.env`, `data/`, API keys, actual personal profiles, chat history, local databases, or recordings.
-- `config/profile.example.json` contains **fictional placeholder values** only.
-- Require explicit authorization before tool actions that send data, modify files, place calls, or access third-party accounts.
-- Cloud processing and multi-device sync are **future features**, not currently available.
-- Use version control for code and docs, not private agent state.
-
-## Contributing and license
-
-This is an early personal project. No license has been selected yet; do not assume permission to reuse the code without one.
+No license has been selected yet.

@@ -1,8 +1,8 @@
 {
   "name": "echo-personal-agent",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
-  "description": "Local-first personal AI agent \u2014 architecture and CLI scaffold",
+  "description": "Local-first personal AI agent — Phase 0 local conversation and private profile",
   "type": "module",
   "engines": {
     "node": ">=24 <25"

@@ -1,7 +1,12 @@
 {
-  "displayName": "Your Name",
-  "communicationStyle": "Clear and practical",
+  "displayName": "",
+  "communicationStyle": "Clear, practical and direct",
+  "decisionStyle": "Present options, trade-offs and uncertainty",
+  "currentFocus": "",
   "goals": [],
-  "preferences": {},
-  "notes": "Example only. Store real personal information outside Git."
+  "values": [],
+  "preferences": {
+    "explanationFormat": "Definition, explanation, example, application"
+  },
+  "notes": ""
 }

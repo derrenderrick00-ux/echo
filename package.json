@@ -1,14 +1,15 @@
 {
   "name": "echo-personal-agent",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
-  "description": "Local-first personal AI agent \u2014 Phase 0 persistent notes, semantic search, on-demand routine",
+  "description": "Local-first personal AI agent \u2014 Phase 0 reliability improvements and acceptance testing",
   "type": "module",
   "engines": {
     "node": ">=24 <25"
   },
   "scripts": {
     "start": "node src/echo.js",
-    "test": "node --test"
+    "test": "node --test",
+    "benchmark": "node scripts/benchmark-models.js"
   }
 }

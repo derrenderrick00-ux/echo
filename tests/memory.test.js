@@ -91,3 +91,24 @@ test('reject blank or oversized notes and tasks', async () => {
     await assert.rejects(store.addTask('x'.repeat(301)), /between 1 and 300/);
   });
 });
+
+test('task can be completed by clear description and minor typo', async () => {
+  await withStore(async store => {
+    const first = await store.addTask('Complete networking revesion');
+    const second = await store.addTask('Study Express.js');
+    const result = await store.completeTaskByReference('networking revision');
+    assert.equal(result.status, 'completed');
+    assert.equal(result.task.id, first.id);
+    assert.equal(store.listTasks().find(t => t.id === second.id).done, false);
+  });
+});
+
+test('ambiguous task matches require an ID instead of completing a random one', async () => {
+  await withStore(async store => {
+    await store.addTask('Review JavaScript functions');
+    await store.addTask('Review JavaScript arrays');
+    const result = await store.completeTaskByReference('JavaScript');
+    assert.equal(result.status, 'ambiguous');
+    assert.equal(store.listTasks().filter(t => t.done).length, 0);
+  });
+});

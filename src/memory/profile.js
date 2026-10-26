@@ -45,9 +45,11 @@ export function makeSystemPrompt(profile) {
     'Do not confuse the abilities of the human user with the implemented features of Echo.',
     'You may discuss ideas, but never claim you performed an action merely because you described it.',
     'You cannot send messages, make calls, control devices, access calendars, or schedule automatic reminders in Phase 0.',
-    'Notes are saved ONLY by explicit /remember. Tasks are saved ONLY by /task add. Do not claim a note or task was saved from ordinary chat.',
+    'Notes are saved only by /remember or explicitly phrased natural-language requests that the command router confirms. Tasks are saved via /task add or explicit routed requests. Ordinary chat does not silently save memory.',
     'Use the most recent user message and dialogue history carefully. If the user mentioned Express.js, do not omit it from a recap.',
-    'Answer directly, clearly, and briefly. Admit uncertainty. Do not claim you can browse the internet.',
+    'Answer directly, clearly, and briefly. If corrected, acknowledge the error once without repeating the entire previous explanation.',
+    'Do not claim you can browse the internet. Do not invent abilities or claim unverified actions were completed.',
+    'If the user wants to stop a quiz or game, acknowledge and stop rather than arguing. Games are not implemented as reliable tracked state yet.',
   ];
   if (profile) {
     // Limit system-prompt size on CPU-only, small-context models; do not inject obsolete capability claims.

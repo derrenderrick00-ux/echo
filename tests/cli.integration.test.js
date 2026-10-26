@@ -59,3 +59,35 @@ test('CLI end-to-end: note persistence, simulated Ollama streaming, routine', as
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('piped commands are not lost when stdin closes during async work', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'echo-cli-queue-'));
+  const script = resolve('src/echo.js');
+  const env = { ...process.env, ECHO_OLLAMA_URL: 'http://127.0.0.1:1' };
+  try {
+    const result = await runNode(script, root, env, [
+      'Remember that I am learning Express.js',
+      '/task add Complete networking revesion',
+      'I have completed networking revision',
+      '980 convert to binary',
+      '/abilities',
+      '/recall',
+      '/notes',
+      '/task list',
+      '/exit',
+    ].join('\n') + '\n');
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /Saved note/);
+    assert.match(result.stdout, /Completed task/);
+    assert.match(result.stdout, /1111010100/);
+    assert.match(result.stdout, /Not implemented: calendar sync/);
+    assert.match(result.stdout, /Usage: \/recall <search query>/);
+    assert.match(result.stdout, /\[x\].*Complete networking revesion/);
+    const saved = JSON.parse(await readFile(join(root, 'data/echo-memory.json'), 'utf8'));
+    assert.equal(saved.notes.length, 1);
+    assert.equal(saved.tasks.length, 1);
+    assert.equal(saved.tasks[0].done, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -75,3 +75,15 @@ The vector is optional. The store supports up to 500 notes and 300 tasks in Phas
 - Retrieved notes are treated as reference material, not executable instructions, but the LLM may still be susceptible to prompt injection; do not store untrusted content as highly privileged instructions.
 - No external-action tools or scheduling engine are enabled in Phase 0.
 - Personal profile and runtime memory must never enter Git; `.gitignore` excludes them.
+
+## v0.0.4 Phase 0 reliability changes
+
+- `src/core/intent.js` recognizes a deliberately limited set of **explicit** local instructions; it does not automatically turn general chat into permanent memory. Missing or ambiguous references are not silently persisted.
+- `src/core/math.js` evaluates bounded arithmetic and decimal-to-binary conversion directly rather than making the 1B/3B model guess. The router delegates other math and general questions to the model.
+- `src/core/capabilities.js` is a deterministic, versioned capabilities summary to prevent confusion between current and planned features.
+- `src/memory/store.js` can complete an open task by an unambiguous ID, exact description, partial title, or narrowly fuzzy match; ambiguities are surfaced instead of silently changing state.
+- `src/interfaces/cli.js` queues received lines and drains the queue after stdin closes, avoiding the v0.0.3 readline race during piped commands and slower async embeddings/inference.
+- `scripts/benchmark-models.js` compares candidate models with fixed, nonprivate prompts over loopback Ollama and reports wall time and generation throughput. It does not score real-world correctness.
+- CPU-only model choice is **configurable**. Start with `llama3.2:1b`, evaluate `llama3.2:3b` (2.0 GB disk footprint) and optionally another 3B model before selecting a new default. Larger models are not a substitute for deterministic tools.
+
+Phase 0 status remains in progress until the developer performs the offline live-acceptance checklist in `docs/PHASE0_CLOSEOUT.md`.

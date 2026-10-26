@@ -1,145 +1,144 @@
-# Echo — Local-first Personal AI Agent
+# Echo — Local-First Personal AI Agent
 
-**Version:** v0.0.3 · **Current phase:** Phase 0 — Foundation · **Milestones:** 0.1–0.3 verified by the developer; 0.4–0.5 implemented, live Ubuntu verification pending.
+**Release:** v0.0.4 (Phase 0 reliability candidate)  
+**Status:** Phase 0 is feature-complete against its basic scope, but acceptance on the developer's Ubuntu machine is pending. Phase 1 is **planned**, not yet implemented.
 
-Echo is a modular, local-first personal AI assistant. Derrick is the human creator; **Echo is the AI**, not Derrick. The long-term project roadmap encompasses offline conversation, routine management, coding support, approved autonomy, Android/Windows/Ubuntu continuity and telephony. **Those later-phase capabilities have not been implemented.**
+Echo is an offline-first personal AI assistant developed by Derrick. **Derrick is the human creator; Echo is the AI assistant.** The master specification is the source of truth for planned phases; never confuse future features with implemented capabilities.
 
-## What's working in v0.0.3
+## What works now
 
-- Local chat through Ollama (`llama3.2:1b`) and token-by-token terminal output.
-- Private profile loaded from `config/profile.json` (not committed to Git).
-- Explicit, **persistent** personal notes (`/remember`, `/notes`, `/forget`).
-- Keyword note search and optional **vector search** with `all-minilm` (`/recall`, `/index`).
-- Persistent tasks (`/task add`, `/task list`, `/task done`).
-- **On-demand routine snapshot** (`/routine` or `/today`) from saved tasks and profile goals.
-- Automated tests for persistence, retrieval, identity instructions, streaming, and error handling.
+- Local conversations through Ollama with streamed text output and a private startup profile.
+- Explicit notes saved to local disk, recalled by keyword or local vector embeddings (`all-minilm`).
+- Local tasks with persistent completion state, referenced by task ID **or unique task description**.
+- On-demand factual routine snapshot from manually saved tasks and profile goals; **not a calendar, notification, or alarm**.
+- Deterministic basic arithmetic and decimal-to-binary conversion (not guessed by the LLM).
+- Explicitly phrased natural-language requests such as `Remember that ...`, `... add that to memory`, or `I have completed ...`, with confirmation. No automatic saving of ordinary chat.
+- Helpful `/abilities` and `/identity` outputs. Robust queued CLI input even when stdin is piped.
 
-**Important limitations:** Everyday conversation is **not** automatically converted into permanent memory. Saving a note does **not** train or fine-tune the model. Task entries do **not** schedule alarms. Routine summaries do not read your calendar. The model may still make reasoning mistakes, especially with a 1B CPU-only model. Stored data is local plaintext with restrictive file permissions, **not encryption at rest**; encryption remains future security work.
+**Not implemented:** real alarms, calendar sync, voice commands, mobile clients, internet browsing, system control, autonomous actions, game-state tracking or phone calls. Local notes are plaintext protected by OS file permissions, **not encrypted at rest**. Never store passwords here.
 
 ## Requirements
 
-- Ubuntu, Node.js 24, npm, Git.
-- Ollama installed with service running (`systemctl status ollama`).
-- Chat model: `ollama pull llama3.2:1b`.
-- For semantic note retrieval: `ollama pull all-minilm` (lightweight ~46 MB embedding model). Source: https://ollama.com/library/all-minilm
+- Ubuntu and Node.js 24 (`node --version`), npm, Git.
+- Locally running Ollama (`systemctl status ollama`).
+- Chat model: `ollama pull llama3.2:1b` (existing baseline).
+- Optional stronger chat model: `ollama pull llama3.2:3b` (evaluate on 8 GB CPU-only laptop first).
+- Embedding model: `ollama pull all-minilm`.
 
-## Upgrade an existing Echo v0.0.2 repository
+## Upgrade from v0.0.3
 
-**Do not replace the repository directory, `.git`, `.env`, or `config/profile.json`.** The upgrade ZIP contains only changed public files, not personal data.
+Do **not** replace your entire repository or delete `.git`, `.env`, `config/profile.json`, or `data/echo-memory.json`.
 
 ```bash
 cd ~/Documents/echo
-unzip -o ~/Downloads/echo-milestones-0.4-0.5-update.zip -d .
+git status
+# Back up your local memory outside the repository if you value these notes:
+mkdir -p ~/Documents/echo-private-backups
+cp -a data ~/Documents/echo-private-backups/data-before-v004
+# Assuming downloaded update ZIP is in ~/Downloads:
+unzip -o ~/Downloads/echo-v0.0.4-phase0-closeout-update.zip -d .
 npm install
-ollama pull all-minilm
-```
-
-Your existing `.env` will **not** be overwritten. To use recommended CPU-limited settings, edit it and set:
-
-```dotenv
-ECHO_MODEL_PROVIDER=ollama
-ECHO_OLLAMA_URL=http://127.0.0.1:11434
-ECHO_OLLAMA_MODEL=llama3.2:1b
-ECHO_EMBED_MODEL=all-minilm
-ECHO_MAX_TURNS=4
-ECHO_MAX_OUTPUT_TOKENS=192
-ECHO_CONTEXT_TOKENS=2048
-```
-
-```bash
 npm test
 npm start
 ```
 
-`data/echo-memory.json` will be created when you first save a note or task. It is ignored by Git. This project stores memory in a versioned JSON file for Phase 0; production-scale database and encrypted storage are later considerations. Copy a backup of your private `data/` folder before upgrades once it contains valuable information.
+The patch ZIP contains **only public project files**. Existing `.env` and private profile remain unchanged.
 
-## CLI commands
-
-| Command | Effect |
-| --- | --- |
-| `/help` | Show all commands |
-| `/status` | Display project phase statuses |
-| `/model` | Display chat and embedding models |
-| `/profile` | Confirm whether private profile was loaded |
-| `/identity` or `whoami` | Deterministically distinguish Derrick (human) and Echo (AI) |
-| `/remember <note>` | **Save** a note to disk; try local vector indexing |
-| `/notes` | List saved notes and their short IDs |
-| `/recall <query>` | Find notes; uses vectors when available, keyword fallback otherwise |
-| `/index` | Retry embedding notes not yet vector-indexed |
-| `/forget <note-id>` | Permanently remove a saved note |
-| `/task add <description>` | Save a task (does not schedule an alarm) |
-| `/task list` | List saved tasks with IDs |
-| `/task done <task-id>` | Mark one saved task completed |
-| `/routine` or `/today` | Show an on-demand routine snapshot using saved tasks/profile |
-| `/reset` | Clear current chat history; saved notes and tasks remain |
-| `/exit`, `/bye`, or `exit` | Exit Echo |
-
-### Verify note persistence and search
-
-```text
-$ npm start
-you> /identity
-Derrick is the human owner and creator of Echo. Echo is the AI assistant, not the human.
-you> /remember I'm learning Express.js routes.
-echo> Saved note [xxxxxxxx]. Semantic vector indexed.
-you> /recall backend web framework
-Memory search (semantic + keyword):
-[xxxxxxxx] I'm learning Express.js routes.
-you> /task add Study Express.js for 30 minutes
-echo> Added task [yyyyyyyy]: Study Express.js for 30 minutes
-you> /routine
-Routine snapshot — ...
-you> /reset
-you> /notes
-[xxxxxxxx] I'm learning Express.js routes.
-you> /exit
-```
-
-Re-run `npm start` and `/notes` to confirm persistence. The IDs and output are illustrative; live retrieval quality depends on the actual embedding model and query.
-
-## Architecture
-
-```text
-src/echo.js                   Bootstrap; reads config, wires dependencies
-src/phases/phase-00.js        Phase-0 composition and help
-src/core/conversation.js      Recent conversation history + note context
-src/core/routine.js           Deterministic on-demand routine summaries
-src/memory/profile.js         Private human profile and identity prompt
-src/memory/store.js           Persistent notes/tasks, ranking, file storage
-src/providers/ollama.js       Local streaming/non-streaming chat API
-src/providers/embeddings.js   Local semantic embedding API
-src/interfaces/cli.js         Commands and terminal output
-```
-
-The remaining `src/phases/phase-01.js` through `phase-05.js` remain placeholders. Details are in `docs/ARCHITECTURE.md` and `docs/phases/phase-00.md`.
-
-## Privacy and safety
-
-- Phase 0 enforces an Ollama loopback address and rejects explicitly named `:cloud` models. It does not inspect the entire Ollama model manifest or enforce offline networking at the OS level; only select locally downloaded models.
-- **Never commit** `.env`, `config/profile.json`, or any files from `data/`.
-- Saved notes and tasks are personal reference data, **not trusted instructions**. Do not store passwords or credentials in Phase 0 plaintext memory.
-- Stored memory files use atomic replacement and private Unix permissions, but are **not encrypted at rest**.
-- Notes are saved/forgotten only through explicit commands. No arbitrary filesystem/system-execution tool is enabled.
-- `.env.example` is public; `.env` remains personal and excluded from Git.
-
-## Phase 0 acceptance checklist
-
-- [x] Development environment, repository and Ollama service (developer confirmed).
-- [x] Milestones 0.2/0.3 Ollama chat and private profile (developer terminal test).
-- [x] Milestone 0.4 code + automated tests (persistent notes and retrieval).
-- [x] Milestone 0.5 code + automated tests (on-demand routine summary).
-- [ ] Live Ubuntu smoke test: restart and confirm persistence, vector retrieval, routine output, offline use, and resource consumption.
-
-Phase 0 is **not yet marked complete** until the acceptance checks pass on the actual machine.
-
-## Git workflow
+### Local model upgrade (optional)
 
 ```bash
-git status
-git check-ignore .env config/profile.json data/echo-memory.json
-git add README.md .env.example package.json package-lock.json src docs tests
-git commit -m "feat: add persistent memory, semantic recall and routine summary"
-git push
+ollama pull llama3.2:3b
+npm run benchmark -- llama3.2:1b llama3.2:3b
 ```
 
-**License:** Not selected. No license is granted automatically by making a public repository.
+Use the results to choose between speed and accuracy. To select 3B, edit your private `.env`:
+
+```dotenv
+ECHO_MODEL_PROVIDER=ollama
+ECHO_OLLAMA_URL=http://127.0.0.1:11434
+ECHO_OLLAMA_MODEL=llama3.2:3b
+ECHO_EMBED_MODEL=all-minilm
+ECHO_MAX_TURNS=4
+ECHO_MAX_OUTPUT_TOKENS=256
+ECHO_CONTEXT_TOKENS=2048
+```
+
+**Note:** Config is read on startup; exit Echo and run `npm start` after changes. Your ThinkPad has 8 GB RAM and CPU-only inference; 3B may be slower or compete with browser/VS Code for memory. Model upgrade is **not guaranteed** to fix every error. Keep 1B as a fallback by changing just `ECHO_OLLAMA_MODEL`.
+
+### Commands
+
+| Command | What it does |
+| --- | --- |
+| `/help` | Available commands |
+| `/identity` or `whoami` | Distinguish creator and assistant |
+| `/abilities` | Implemented vs planned functionality |
+| `/model` / `/profile` / `/status` | Diagnostics |
+| `/remember <text>` | Save one explicit note |
+| `/notes` | List saved notes |
+| `/recall <query>` | Keyword + semantic note search |
+| `/forget <id>` | Delete a saved note |
+| `/index` | Rebuild missing note embeddings |
+| `/task add <description>` | Add a manual task |
+| `/task list` | Show tasks and IDs |
+| `/task done <id or unique description>` | Complete one unambiguous task |
+| `/routine` / `/today` | Snapshot of profile goals and manual tasks |
+| `/reset` | Clear session chat (not saved notes or tasks) |
+| `/exit` / `exit` | Close application |
+
+Explicit natural-language requests also work for certain commands:
+
+```text
+you> Remember that I am learning Express.js.
+echo> Saved note [...]. Semantic vector indexed.
+you> /task add Complete networking revesion
+echo> Added task [...]: Complete networking revesion
+you> I have completed networking revision
+echo> Completed task [...]: Complete networking revesion
+you> 980 convert to binary
+echo> 980 in binary is 1111010100.
+you> What can you do?
+Echo v0.0.4 — implemented now: ...
+```
+
+Unclear memory references (`add that to memory` without text) require you to provide the exact note. Unclear task matches list IDs rather than guessing.
+
+## File structure
+
+```text
+src/echo.js                   Application bootstrap
+src/phases/phase-00.js        Phase 0 composition and status
+src/phases/phase-01.js        Future Phase 1 placeholder
+src/core/conversation.js      Conversation context assembly
+src/core/config.js            Local model configuration validation
+src/core/intent.js            Limited natural-language intent router
+src/core/math.js              Deterministic arithmetic and base conversion
+src/core/capabilities.js      Grounded list of implemented features
+src/core/routine.js           Factual on-demand routine snapshot
+src/interfaces/cli.js         CLI input queue, commands and output
+src/memory/profile.js         Private profile and identity prompt
+src/memory/store.js           Private persistent notes and tasks
+src/providers/ollama.js       Local AI chat API
+src/providers/embeddings.js   Local note embeddings API
+scripts/benchmark-models.js   Offline small-model comparison
+config/profile.example.json  Public example only
+config/profile.json          YOUR private profile — ignored by Git
+data/echo-memory.json        YOUR private notes — ignored by Git
+```
+
+## Testing and acceptance
+
+```bash
+npm test
+```
+
+Run the manual checks in [`docs/PHASE0_CLOSEOUT.md`](docs/PHASE0_CLOSEOUT.md) to decide whether Phase 0 can be marked complete. Check note persistence after exit/restart, task completion by description, exact binary conversion, private profile, offline model inference, and an on-demand `/routine` response. When passing, start the work listed in [`docs/phases/phase-01.md`](docs/phases/phase-01.md).
+
+## Security and Git
+
+- `.env`, `config/profile.json`, and `data/echo-memory.json` should be ignored by `.gitignore`.
+- Never add API keys, private user data, or the local memory file to GitHub.
+- Phase 0 itself only contacts loopback Ollama. Use local model tags; do not select cloud model aliases.
+- `data/echo-memory.json` uses restrictive Unix permissions and atomic writes, but no encryption at rest.
+- Natural-language requests may cause a local save **only when they explicitly request memory storage or task creation/completion**. Each such action is acknowledged.
+
+**License:** Not selected. GitHub visibility alone does not grant a license for redistribution.

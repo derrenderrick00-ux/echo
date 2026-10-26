@@ -40,7 +40,7 @@ test('explicit stored note appears as context; model is instructed not to invent
   await session.reply('What should I practice?');
   assert.match(payload[1].content, /Practice Express.js/);
   assert.match(payload[0].content, /Echo, an AI assistant/);
-  assert.match(payload[0].content, /Notes are saved ONLY by explicit \/remember/);
+  assert.match(payload[0].content, /Notes are saved only by \/remember/);
 });
 
 test('context includes the exact latest technology mention', async () => {

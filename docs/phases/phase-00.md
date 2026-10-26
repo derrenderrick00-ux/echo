@@ -1,6 +1,6 @@
 # Phase 0 — Foundation (Week 1–2 in original roadmap)
 
-**Status:** Implementation ready; acceptance testing pending on the developer's Ubuntu device.  
+**Status:** v0.0.4 reliability candidate; user acceptance pending on Ubuntu.  
 **Source of requirements:** Echo Master Document, Part 1, §5, specification v1.3.
 
 ## Milestones and acceptance
@@ -51,3 +51,7 @@ For strict offline testing, make sure Ollama uses local models, then disconnect 
 
 - Calendar sync, reminders/notifications, local STT/TTS, richer conversation handling: **Phase 1**.
 - Model fine-tuning/training, encrypted at-rest storage, system-level autonomous actions, cross-device synchronization and cloud features: **later**, with separate acceptance criteria.
+
+## v0.0.4 closeout
+
+Addressed: piped-input CLI race, deterministic binary conversions and simple arithmetic, explicit natural-language note storage and task-completion, unique task-name resolution, truthful `/abilities` report, and clearer identity/correction instructions. See `docs/PHASE0_CLOSEOUT.md` for updated live acceptance. No larger model is forced: compare 1B vs 3B on the actual laptop before changing `.env`.

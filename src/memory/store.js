@@ -48,6 +48,27 @@ function validate(data) {
   return data;
 }
 
+function normalizeTask(text) {
+  return String(text).toLowerCase().normalize('NFKC')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/^(?:complete|finish|finished|study|learn|review|revise)\s+/, '');
+}
+
+function editDistance(a, b) {
+  const row = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const previous = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1,
+        diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diagonal = previous;
+    }
+  }
+  return row[b.length];
+}
+
 export class MemoryStore {
   constructor({ filePath, embedder = null, clock = () => new Date() }) {
     if (!filePath) throw new Error('A memory file path is required.');
@@ -171,6 +192,43 @@ export class MemoryStore {
     this.data.tasks.push(task);
     await this.save();
     return { ...task };
+  }
+
+  // Name completion is safe only when exactly one open task matches.
+  // Existing completeTask(id) remains available for exact-ID callers.
+  async completeTaskByReference(reference) {
+    this.checkReady();
+    const candidate = String(reference).trim();
+    if (!candidate) return { status: 'missing', matches: [] };
+    const direct = this.data.tasks.find(t => t.id === candidate);
+    if (direct) {
+      if (direct.done) return { status: 'already-done', task: { ...direct } };
+      await this.completeTask(direct.id);
+      return { status: 'completed', task: { ...direct, done: true } };
+    }
+    const query = normalizeTask(candidate);
+    if (!query || query.length > 300) return { status: 'missing', matches: [] };
+    const open = this.data.tasks.filter(t => !t.done);
+    const exact = open.filter(t => normalizeTask(t.text) === query);
+    let matches = exact;
+    if (!matches.length) {
+      matches = open.filter(t => {
+        const title = normalizeTask(t.text);
+        return query.length >= 5 && (title.includes(query) || query.includes(title));
+      });
+    }
+    if (!matches.length && query.length >= 8) {
+      const ranked = open.map(t => ({ task: t, distance: editDistance(query, normalizeTask(t.text)) }));
+      const best = Math.min(Infinity, ...ranked.map(x => x.distance));
+      if (best <= Math.max(2, Math.floor(query.length * 0.15))) {
+        matches = ranked.filter(x => x.distance === best).map(x => x.task);
+      }
+    }
+    if (!matches.length) return { status: 'missing', matches: [] };
+    if (matches.length > 1) return { status: 'ambiguous', matches: matches.map(t => ({ id: t.id, text: t.text })) };
+    const task = matches[0];
+    await this.completeTask(task.id);
+    return { status: 'completed', task: { ...task, done: true } };
   }
 
   async completeTask(id) {

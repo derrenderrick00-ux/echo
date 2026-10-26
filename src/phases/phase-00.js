@@ -12,9 +12,9 @@ export function createPhase00({ provider, profile, memory, maxTurns }) {
 
 export function phase00Help() {
   return [
-    'Commands: /help /status /model /profile /identity /reset /exit',
+    'Commands: /help /status /model /profile /identity /abilities /reset /exit',
     'Memory: /remember <note>  /notes  /recall <query>  /forget <note-id>  /index',
-    'Tasks: /task add <task>  /task list  /task done <task-id>  /routine',
-    'Ordinary chat does NOT automatically save new memories. /reset clears only temporary chat history.',
+    'Tasks: /task add <task>  /task list  /task done <id or text>  /routine',
+    'Explicit requests such as "remember that ..." save notes; ordinary chat does not. /reset clears only temporary history.',
   ].join('\n');
 }

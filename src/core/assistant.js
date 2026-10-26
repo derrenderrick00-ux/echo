@@ -15,7 +15,7 @@ export const HELP = [
   'Routine: /brief morning /brief evening',
   'Learning: /summarize <text> /decide Option A | Option B',
   'Games: /game trivia technology /game trivia general /game wordchain /game guess /game quit',
-  'Voice: /voice check /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
+  'Voice: /voice check /voice test /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
   'Offline calendar alerts only run while this CLI remains open. No internet or messaging actions are implemented.',
 ].join('\n');
 
@@ -63,7 +63,7 @@ export class AssistantController {
     try { await this.voice.requireOutput(); }
     catch (error) { return { text: `Voice replies not enabled: ${error.message}`, announcement: true }; }
     this.voiceReplies = true;
-    return { text: 'Voice replies enabled for this session. Echo will speak future replies after showing them as text. Use /voice off to stop.', announcement: true };
+    return { text: 'Voice replies enabled for this session. Echo will speak after each completed text reply. Use /voice off to stop.', announcement: true, speak: true, activationSpeech: true };
   }
   async hearAndAnswer(seconds, { speak = false, onToken } = {}) {
     if (!this.voice) return { text: 'Voice provider is unavailable.', announcement: true };
@@ -160,6 +160,11 @@ export class AssistantController {
     if (lower === '/voice' || lower === '/voice status') return { text: `${this.voice?.status() ?? 'Offline voice provider not configured.'}\nSpoken replies this session: ${this.voiceReplies ? 'ON' : 'OFF'}.`, announcement: true };
     if (lower === '/voice setup') return { text: voiceSetup({ status: this.voice?.status() || '' }), announcement: true };
     if (lower === '/voice check') return { text: this.voice ? await this.voice.check() : 'Voice provider is unavailable.', announcement: true };
+    if (lower === '/voice test') {
+      if (!this.voice) return { text: 'Voice provider is unavailable.', announcement: true };
+      await this.voice.speak('This is Echo. If you can hear this message, local text to speech playback is working.');
+      return { text: 'Test playback command finished. If no sound was audible, check Ubuntu volume and output device.', announcement: true };
+    }
     if (lower === '/voice on') return this.enableVoice();
     if (lower === '/voice off') { this.voiceReplies = false; return { text: 'Voice replies disabled. Echo will continue in text.', announcement: true }; }
     if (lower === '/voice reply' || lower === 'read your last answer aloud' || lower === 'say that aloud') {

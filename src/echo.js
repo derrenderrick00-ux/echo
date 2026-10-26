@@ -21,11 +21,11 @@ export async function main() {
   loadLocalEnv();
   const config = readConfig();
   const profileState = await loadProfile(config.profilePath);
-  const provider = new OllamaProvider({ baseUrl: config.baseUrl, model: config.model, numCtx: config.contextTokens, maxOutputTokens: config.maxOutputTokens });
+  const provider = new OllamaProvider({ baseUrl: config.baseUrl, model: config.model, numCtx: config.contextTokens, maxOutputTokens: config.maxOutputTokens, timeoutMs: config.timeoutMs });
   const embedder = new OllamaEmbeddings({ baseUrl: config.baseUrl, model: config.embeddingModel });
   const memory = await new MemoryStore({ filePath: config.memoryPath, embedder }).init();
   const calendar = await new LocalCalendar({ filePath: resolve(config.root, 'data/echo-calendar.json') }).init();
-  const voice = new LocalVoice({ whisperModel: config.whisperModel, piperModel: config.piperModel });
+  const voice = new LocalVoice({ whisperModel: config.whisperModel, whisperBin: config.whisperBin, piperModel: config.piperModel, piperBin: config.piperBin, piperMode: config.piperMode });
   const session = createPhase00({ provider, profile: profileState.profile, memory, maxTurns: config.maxTurns });
   await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, timeZone: config.timeZone });
 }

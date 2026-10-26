@@ -5,6 +5,15 @@ export function parseIntent(raw) {
   if (!text || text.startsWith('/')) return null;
   const math = calculateText(text);
   if (math !== null) return { type: 'math', result: math };
+  if (/\b(?:ollama stream timed out|what (?:do you mean by|does) [\"']?ollama stream timed out|why did (?:ollama|you) time out)\b/i.test(text)) return { type: 'timeoutInfo' };
+  if (/^why (?:does|is) (?:your|echo'?s) voice (?:not working|not work|not functioning|fail(?:ing)?|not responding)\??$/i.test(text)) return { type: 'voiceHelp' };
+  if (/^(?:how (?:can|do) i (?:configure|set up|install) (?:your|echo'?s|the) voice|help me configure (?:your|echo'?s) voice|(?:configure|set up|install) (?:your|echo'?s) voice|why (?:doesn't|does not|isn't|is not) (?:your|echo'?s) voice work\??)$/i.test(text)) return { type: 'voiceHelp' };
+  if (/^(?:i (?:want|need) (?:you|echo) to (?:respond|speak|talk) (?:with|in) voice|(?:enable|turn on) (?:your )?voice(?: mode| responses)?|(?:respond|reply|answer) (?:with|in) voice)\.?$/i.test(text)) return { type: 'voiceRequest' };
+  if (/^(?:what(?:'s| is) (?:your )?voice (?:status|configuration)|is (?:your )?voice (?:working|configured))\??$/i.test(text)) return { type: 'voiceStatus' };
+  if (/^(?:run (?:new )?date\(\) (?:in (?:your )?(?:js|javascript)(?: file)?)?|what is (?:today'?s|the current) date|today'?s date|what date is today)\??$/i.test(text)) {
+    if (/^run /i.test(text)) return { type: 'javascriptDate' };
+    return { type: 'datetime' };
+  }
   if (/^(?:whoami|who am i\??|who is derrick\??|who created (?:you|echo)\??)$/i.test(text)) return { type: 'identity' };
   if (/^(?:what (?:can you do|are your (?:abilities|capabilities))\??|list your capabilities\.?|what features are implemented\??)$/i.test(text)) return { type: 'capabilities' };
   if (/^(?:what(?:'s| is) (?:the )?(?:date|day|time)(?: today| now)?\??|today'?s date\??|what date is today\??)$/i.test(text)) return { type: 'datetime' };

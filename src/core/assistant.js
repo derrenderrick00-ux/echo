@@ -5,16 +5,17 @@ import { formatEvents } from './calendar.js';
 import { briefing } from './briefings.js';
 import { summarizeText, decisionPrompt } from './summarize.js';
 import { Games } from './games.js';
+import { timeoutExplanation, voiceSetup, javascriptDateExplanation } from './diagnostics.js';
 
 export const HELP = [
-  'Commands: /help /menu /status /model /profile /identity /abilities /date /reset /continue /exit',
+  'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /reset /continue /exit',
   'Notes: /remember <text> /notes /recall <query> /forget <note-id> /index /summarize notes',
   'Tasks: /task list /task add <text> /task done <id or description> /routine',
   'Calendar: /event list /event add 2026-11-01T09:00+03:00 | Event name /event delete <id>',
   'Routine: /brief morning /brief evening',
   'Learning: /summarize <text> /decide Option A | Option B',
   'Games: /game trivia technology /game trivia general /game wordchain /game guess /game quit',
-  'Voice: /voice status /voice listen [seconds] /voice transcribe <file.wav> /voice speak <text>',
+  'Voice: /voice check /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
   'Offline calendar alerts only run while this CLI remains open. No internet or messaging actions are implemented.',
 ].join('\n');
 
@@ -47,11 +48,59 @@ export class AssistantController {
     this.clock = clock;
     this.games = new Games();
     this.lastAnswer = '';
+    this.lastMathPlain = null;
+    this.lastOutput = '';
+    this.voiceReplies = false;
   }
   async answer(input, { onToken } = {}) {
+    const result = await this.process(input, { onToken });
+    if (result?.text && !result.exit && !result.announcement) this.lastOutput = result.text;
+    if (result?.text && !result.exit && !result.announcement && this.voiceReplies && !result.speak) return { ...result, speak: true };
+    return result;
+  }
+  async enableVoice() {
+    if (!this.voice) return { text: 'Voice provider is unavailable. See /voice setup.', announcement: true };
+    try { await this.voice.requireOutput(); }
+    catch (error) { return { text: `Voice replies not enabled: ${error.message}`, announcement: true }; }
+    this.voiceReplies = true;
+    return { text: 'Voice replies enabled for this session. Echo will speak future replies after showing them as text. Use /voice off to stop.', announcement: true };
+  }
+  async hearAndAnswer(seconds, { speak = false, onToken } = {}) {
+    if (!this.voice) return { text: 'Voice provider is unavailable.', announcement: true };
+    if (speak) {
+      try { await this.voice.requireOutput(); }
+      catch (error) { return { text: `Spoken voice chat unavailable: ${error.message}`, announcement: true }; }
+    }
+    await this.voice.requireInput();
+    const transcript = (await this.voice.listen({ seconds })).trim();
+    if (!transcript) return { text: 'No speech recognized. Nothing was sent to Echo.', heard: '', announcement: true };
+    const change = parseIntent(transcript);
+    if (transcript.startsWith('/') || ['remember', 'addTask', 'completeTask'].includes(change?.type)) {
+      return { text: `I heard: ${transcript}\nThis could modify stored data or execute a command. Type it to confirm.`, heard: transcript, announcement: true };
+    }
+    const result = await this.process(transcript, { onToken });
+    return { ...result, heard: transcript, speak: speak || result.speak };
+  }
+  async process(input, { onToken } = {}) {
     const line = String(input).trim();
     const lower = line.toLowerCase();
     if (!line) return { text: '' };
+    const spokenQuery = line.match(/^(?:(?:please\s+)?(?:answer|respond|reply|say)(?:\s+to\s+me)?\s+(?:in|with)\s+voice)\s*[:,-]?\s+(.+)$/is);
+    if (spokenQuery) {
+      const check = await this.prepareSingleSpeech();
+      if (check) return check;
+      const result = await this.process(spokenQuery[1], { onToken });
+      return { ...result, speak: true };
+    }
+    if (/^(?:(?:please\s+)?(?:answer|respond|reply|say)(?:\s+to\s+me)?\s+(?:in|with)\s+voice|(?:turn\s+on|enable)\s+(?:my\s+)?voice(?:\s+mode)?)\.?$/i.test(line)) return this.enableVoice();
+    if (/^(?:stop\s+speaking|stop\s+voice\s+replies|(?:turn\s+off|disable)\s+voice(?:\s+mode)?)\.?$/i.test(line)) return this.process('/voice off');
+    if (/^(?:listen\s+to\s+me|take\s+voice\s+input|i\s+want\s+to\s+speak\s+to\s+you)\.?$/i.test(line)) return this.process('/voice ask 5', { onToken });
+    if (/^(?:just (?:the )?direct answer|just answer|answer directly|give (?:me )?(?:the )?direct answer)\.?$/i.test(line)) {
+      const last = this.lastMathPlain;
+      this.lastMathPlain = null;
+      return { text: last || 'Specify the exact question or calculation to answer directly.' };
+    }
+    this.lastMathPlain = null;
     if (['/exit','/quit','exit','quit','/bye'].includes(lower)) return { exit: true };
     if (lower === '/game quit') return { text: this.games.respond('q') ?? 'No game is running.' };
     if (this.games.state && !lower.startsWith('/')) return { text: this.games.respond(line) };
@@ -66,6 +115,7 @@ export class AssistantController {
     if (lower === '/profile') return { text: this.profileState.loaded ? 'Private local profile loaded.' : 'No private profile loaded.' };
     if (lower === '/identity') return { text: this.identity() };
     if (lower === '/date') return { text: this.dateTime() };
+    if (lower === '/diagnostics') return { text: this.diagnostics() };
     if (lower === '/reset') { this.session.reset(); this.lastAnswer = ''; this.games.state = null; return { text: 'Conversation cleared. Saved notes, tasks and calendar events remain.' }; }
     if (lower === '/continue' || lower === 'continue your last answer') {
       if (!this.lastAnswer) return { text: 'There is no previous answer to continue.' };
@@ -107,17 +157,33 @@ export class AssistantController {
     if (lower === '/summarize notes') return { text: summarizeText(this.memory.listNotes().map(n => n.text).join('. ') || 'No notes saved.') };
     if (lower.startsWith('/summarize ')) return { text: summarizeText(line.slice(11)) };
     if (lower.startsWith('/decide ')) return this.chat(decisionPrompt(line.slice(8)), onToken);
-    if (lower === '/voice' || lower === '/voice status') return { text: this.voice?.status() ?? 'Offline voice provider not configured.' };
-    if (lower.startsWith('/voice transcribe ')) return { text: `Transcription: ${await this.voice.transcribe(line.slice(18).trim())}` };
+    if (lower === '/voice' || lower === '/voice status') return { text: `${this.voice?.status() ?? 'Offline voice provider not configured.'}\nSpoken replies this session: ${this.voiceReplies ? 'ON' : 'OFF'}.`, announcement: true };
+    if (lower === '/voice setup') return { text: voiceSetup({ status: this.voice?.status() || '' }), announcement: true };
+    if (lower === '/voice check') return { text: this.voice ? await this.voice.check() : 'Voice provider is unavailable.', announcement: true };
+    if (lower === '/voice on') return this.enableVoice();
+    if (lower === '/voice off') { this.voiceReplies = false; return { text: 'Voice replies disabled. Echo will continue in text.', announcement: true }; }
+    if (lower === '/voice reply' || lower === 'read your last answer aloud' || lower === 'say that aloud') {
+      if (!this.lastOutput) return { text: 'There is no previous response to speak.', announcement: true };
+      await this.voice.speak(this.lastOutput);
+      return { text: 'Finished speaking the previous response.', announcement: true };
+    }
+    if (/^\/voice (?:ask|chat)(?:\s|$)/.test(lower)) {
+      const chat = lower.startsWith('/voice chat');
+      const parts = line.split(/\s+/);
+      const seconds = parts.length === 2 ? 5 : Number(parts[2]);
+      if (!Number.isInteger(seconds) || seconds < 1 || seconds > 30) return { text: 'Recording duration must be 1–30 seconds.', announcement: true };
+      return this.hearAndAnswer(seconds, { speak: chat, onToken });
+    }
+    if (lower.startsWith('/voice transcribe ')) return { text: `Transcription: ${await this.voice.transcribe(line.slice(18).trim())}`, announcement: true };
     if (lower === '/voice listen' || lower.startsWith('/voice listen ')) {
       const seconds = lower === '/voice listen' ? 5 : Number(line.slice(14).trim());
       const transcript = await this.voice.listen({ seconds });
-      return { text: `Transcription: ${transcript}\nTo send this as a question, type it into the CLI. The transcript was not automatically saved.` };
+      return { text: `Transcription: ${transcript}\nUse /voice ask 5 to send speech to Echo for an answer.`, announcement: true };
     }
     if (lower === '/voice speak' || lower.startsWith('/voice speak ')) {
-      const utterance = lower === '/voice speak' ? this.lastAnswer : line.slice(13).trim();
+      const utterance = lower === '/voice speak' ? this.lastOutput : line.slice(13).trim();
       await this.voice.speak(utterance);
-      return { text: 'Finished local speech playback.' };
+      return { text: 'Finished local speech playback.', announcement: true };
     }
     if (line.startsWith('/')) return { text: 'Unknown command. Use /help for the actual supported commands.' };
     const intent = parseIntent(line);
@@ -125,7 +191,16 @@ export class AssistantController {
     if (intent?.type === 'clarifyMemory') return { text: 'Tell me exactly what to save: /remember <text>' };
     if (intent?.type === 'completeTask') return this.finish(intent.reference);
     if (intent?.type === 'addTask') return this.addTask(intent.text);
-    if (intent?.type === 'math') return { text: intent.result };
+    if (intent?.type === 'math') {
+      const match = intent.result.match(/^(\d+) \+ (\d+) = (\d+) \(decimal\)[\s\S]*?Verification: ([01]+)₂/);
+      this.lastMathPlain = match ? `${match[1]} + ${match[2]} = ${match[3]}₁₀ = ${match[4]}₂.` : intent.result;
+      return { text: intent.result };
+    }
+    if (intent?.type === 'timeoutInfo') return { text: timeoutExplanation({ timeoutMs: this.session.provider?.timeoutMs }) };
+    if (intent?.type === 'voiceHelp') return { text: voiceSetup({ status: this.voice?.status() || '' }) };
+    if (intent?.type === 'voiceRequest') return this.enableVoice();
+    if (intent?.type === 'voiceStatus') return this.process('/voice status');
+    if (intent?.type === 'javascriptDate') return { text: javascriptDateExplanation(this.dateTime()) };
     if (intent?.type === 'identity') return { text: this.identity() };
     if (intent?.type === 'capabilities') return { text: capabilitySummary() };
     if (intent?.type === 'datetime') return { text: this.dateTime() };
@@ -137,7 +212,21 @@ export class AssistantController {
     if (intent?.type === 'routine') return { text: briefing({ profile: this.profileState.profile, memory: this.memory, calendar: this.calendar, now: this.clock(), timeZone: this.timeZone }) };
     return this.chat(line, onToken);
   }
+  async prepareSingleSpeech() {
+    if (!this.voice) return { text: 'Voice provider is unavailable.', announcement: true };
+    try { await this.voice.requireOutput(); return null; }
+    catch (error) { return { text: `Cannot speak this response: ${error.message}`, announcement: true }; }
+  }
   identity() { return `${this.profileState.profile?.displayName || 'The user'} is the human creator and operator of Echo. Echo is a software AI assistant, not the human.`; }
+  diagnostics() {
+    const provider = this.session.provider || {};
+    return [
+      `Local model: ${this.model}. Embeddings: ${this.embeddingModel}.`,
+      `Timeout: ${Math.round((provider.timeoutMs || 180000) / 1000)} seconds. Output cap: ${provider.maxOutputTokens ?? 'unspecified'} tokens. Context: ${provider.numCtx ?? 'unspecified'} tokens.`,
+      `Voice: ${this.voice?.status() || 'not configured'} Spoken replies this session: ${this.voiceReplies ? 'ON' : 'OFF'}.`,
+      'The model does not have direct access to system logs, the web, or automatic package installation. Use /date, /abilities and /voice status for verified information.',
+    ].join('\n');
+  }
   dateTime() { return new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'medium', timeZone: this.timeZone }).format(this.clock()) + ` (${this.timeZone}, device clock)`; }
   async remember(text) { const { note, indexed } = await this.memory.addNote(text); return { text: `Saved note [${note.id}]: ${note.text}. ${indexed ? 'Semantic index ready.' : 'Keyword search only until indexing succeeds.'}` }; }
   async addTask(text) { const t = await this.memory.addTask(text); return { text: `Added task [${t.id}]: ${t.text}` }; }

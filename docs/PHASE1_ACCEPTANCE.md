@@ -38,18 +38,24 @@ Confirm Phase 0 is marked `complete` and Phase 1 is `in-progress`.
 - [ ] `/summarize We need to revise networking. I should finish the report tomorrow.` contains no invented details.
 - [ ] `/decide SQLite | PostgreSQL` identifies assumptions and potential uncertainty. Independently check technical claims.
 
-## 1.4 Optional offline voice
+## 1.4 Optional offline voice with on-demand two-way interactions
 
-Check tools before testing speech:
+Use `bash scripts/setup-voice-ubuntu.sh` from a normal Ubuntu shell after reviewing the script. Read `docs/VOICE_SETUP_UBUNTU.md` for individual verification commands and model path settings. Piper needs an `.onnx` file and matching `.onnx.json` configuration file; Whisper needs a `.bin` model.
 
-```bash
-command -v whisper-cli
-command -v piper
-command -v arecord
-command -v aplay
-```
-
-Install local binaries/models through their official projects and set `ECHO_WHISPER_MODEL` and `ECHO_PIPER_MODEL` to absolute file paths in the **private** `.env`. Only then try `/voice status`, `/voice listen 5`, `/voice transcribe /path/file.wav`, and `/voice speak Hello`. If binaries or audio devices are missing, voice remains unverified rather than implemented-and-working.
+- [ ] Confirm speaker test works using `aplay ~/Documents/echo-local-tools/test-echo-voice.wav`.
+- [ ] Confirm microphone capture with `arecord` and replay the test WAV.
+- [ ] Configure the five voice entries in your ignored `.env` and restart Echo.
+- [ ] `/voice check` reports that Whisper/Piper model files and executables are present, without claiming actual device operation.
+- [ ] `/voice speak Hello Echo` produces audible speech on the device.
+- [ ] `/voice listen 5` recognizes a known sentence.
+- [ ] `/voice ask 5` transcribes and answers a spoken question in text.
+- [ ] `/voice chat 5` transcribes a spoken question and plays its spoken answer.
+- [ ] `/voice on` speaks subsequent typed replies; `/voice off` disables spoken replies.
+- [ ] `answer in voice what is 43 + 97 in binary` speaks the deterministic correct result for one question.
+- [ ] `/voice reply` speaks the last substantive answer, including exact math results.
+- [ ] Missing Piper `.onnx` files, unconfigured Whisper, or playback failure produce actionable errors without claiming speech succeeded.
+- [ ] Microphone commands that could modify notes/tasks request typed confirmation.
+- [ ] No continuous microphone recording or wake-word listening occurs.
 
 ## 1.5 Privacy and regression
 
@@ -60,3 +66,13 @@ git diff --cached --name-only
 ```
 
 Check public docs for names, locations, personal histories or credentials. Replacing a public file in a new commit does not erase previous versions from Git history. This update does not rewrite Git history.
+
+## RC2 targeted regressions
+
+- [ ] `/date` and `what is today's date` use the device clock and configured timezone.
+- [ ] `43 + 97 in binary` reports `10001100₂`; `just direct answer` immediately afterward reports the same calculation concisely.
+- [ ] `i need a direct answer on 43 + 97 in binary` does not enter the local LLM.
+- [ ] `i want you to respond with voice` enables spoken replies only when local voice files and tools pass checks; it reports missing dependencies otherwise.
+- [ ] `/voice setup` links to the accurate Whisper/Piper installation steps.
+- [ ] `/diagnostics` and asking about an Ollama stream timeout return verified runtime information.
+- [ ] Real Piper speech and Whisper transcription work only after installing their binaries and models on Ubuntu.

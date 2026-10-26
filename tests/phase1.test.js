@@ -119,8 +119,8 @@ test('session game state supports exit, correct feedback and no trivia repetitio
 test('voice module fails clearly when models are not configured', async () => {
   const voice = new LocalVoice();
   assert.match(voice.status(), /NOT configured/);
-  await assert.rejects(voice.listen(), /Whisper model not configured/);
-  await assert.rejects(voice.speak('Hello'), /Piper model not configured/);
+  await assert.rejects(voice.listen(), /Whisper model (?:is )?not configured/);
+  await assert.rejects(voice.speak('Hello'), /Piper model (?:is )?not configured/);
 });
 
 test('decision requests call model with an explicit uncertainty instruction', async t => {
@@ -151,6 +151,7 @@ test('offline Piper speech uses argument arrays, temporary files and playback', 
   const model = join(folder, 'voice.onnx');
   const { writeFile } = await import('node:fs/promises');
   await writeFile(model, 'fixture');
+  await writeFile(`${model}.json`, '{}');
   const calls = [];
   const voice = new LocalVoice({ piperModel: model, runImpl: async (bin, args, options) => {
     calls.push({ bin, args, options });

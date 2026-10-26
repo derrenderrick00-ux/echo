@@ -19,3 +19,14 @@
 **Not tested:** Real Ollama model factual accuracy or latency; real STT/TTS executables, microphone or speaker; accurate calendar alarms when the CLI is closed; encrypted sync; mobile clients; automation; Windows target build. Passing these tests does **not** mean Phase 1 is finished.
 
 **Privacy:** Test data used synthetic examples. The patch contains no `.env`, private profile, personal memory or saved calendar file. The Git repository's previous history is not modified by these generated files.
+
+## RC2 regression update
+
+Eight new regression tests were added for direct binary answers, date variants, voice claims and setup, timeout diagnostics, configuration validation, and modern Piper module invocation. The 67-test suite passed in a Node.js 22 Linux test environment. Real speech input/output and Ollama inference still require testing on the target Ubuntu system.
+
+
+## RC3 voice interaction update
+
+Twelve automated tests were added for one-shot spoken responses, session voice toggling, microphone-driven questions, safe typed confirmation of transcribed state-changing commands, missing model checks, and piped CLI playback orchestration. The resulting **79 tests passed** in a Linux x86_64 test environment running Node.js 22.16.0. Physical speakers, microphone, real Whisper and Piper execution, and Node.js 24 runtime remain unverified in this environment.
+
+`/voice check` validates local model files and executable presence; it does not verify that the audio devices work. The Ubuntu voice installation script was syntax-checked but was not executed here, as it downloads binaries/models and needs the target computer's audio devices.

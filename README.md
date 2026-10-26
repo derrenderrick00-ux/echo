@@ -79,3 +79,14 @@ Run `git status` and inspect `git diff --cached --name-only` before any push. Do
 ## Tests and acceptance
 
 Run `npm test`, then use [`docs/PHASE1_ACCEPTANCE.md`](docs/PHASE1_ACCEPTANCE.md). Tests use fake-model and fake-clock inputs, so they are not a measure of local model factual accuracy, Whisper/Piper functionality or real reminder delivery. The implementation remains a release candidate until verified against the master-specification exit criteria on the target devices.
+
+## Phase 1 reliability hotfix (v0.1.0-rc.3)
+
+This version routes questions about voice configuration, local runtime timeouts, and device date to deterministic explanations. It recognizes direct binary arithmetic requests and prevents a follow-up such as "just direct answer" from changing subjects. Use `/diagnostics` for the local runtime settings, `/voice setup` for accurate Ubuntu instructions, and `docs/VOICE_SETUP_UBUNTU.md` for optional offline voice installation. Setting `ECHO_OLLAMA_TIMEOUT_MS` changes the Ollama request deadline. It does not increase answer accuracy or context size.
+
+
+## Optional local voice interactions (Phase 1 candidate)
+
+Ubuntu installation: see [`docs/VOICE_SETUP_UBUNTU.md`](docs/VOICE_SETUP_UBUNTU.md). The setup script is `bash scripts/setup-voice-ubuntu.sh`; review it before running. Local voice tools are not bundled with Echo and need to be installed and hardware-tested separately.
+
+Within Echo, `/voice check` checks the configured files, `/voice speak Hello Echo` tests spoken output, `/voice listen 5` tests speech recognition, `/voice ask 5` sends a recorded question for a text reply, and `/voice chat 5` records a question and speaks the reply. `/voice on` speaks each new answer while the CLI session runs; `/voice off` disables that mode. `answer in voice <question>` requests spoken output for one reply. Echo does not listen continuously, and voice requests that would change saved data require typed confirmation.

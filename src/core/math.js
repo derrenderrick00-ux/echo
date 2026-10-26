@@ -40,8 +40,12 @@ export function calculateText(input) {
     const correct = claim[2] === '+' ? a + b : claim[2] === '-' ? a - b : a * b;
     return correct === stated ? `Verified: ${claim[1]} ${claim[2]} ${claim[3]} = ${correct}.` : `Correction: ${claim[1]} ${claim[2]} ${claim[3]} = ${correct}, not ${stated}.`;
   }
-  let found = text.match(/^(?:(?:please\s+)?(?:show\s+(?:me\s+)?the\s+(?:calculation\s+)?process\s+for|calculate|compute|show)\s+)?(\d{1,19})\s*\+\s*(\d{1,19})\s+(?:in\s+binary|in\s+base\s*2|using\s+binary)$/i);
-  if (found) return binaryAddition(found[1], found[2]);
+  let found = text.match(/^(?:(?:please\s+)?(?:show\s+(?:me\s+)?the\s+(?:calculation\s+)?process\s+for|calculate|compute|show|i (?:need|want) (?:a )?direct answer (?:on|for|to)|(?:just )?give me (?:the )?(?:direct )?answer (?:for|to))\s+)?(\d{1,19})\s*\+\s*(\d{1,19})\s+(?:in\s+binary|in\s+base\s*2|using\s+binary)$/i);
+  if (found) {
+    const sum = BigInt(found[1]) + BigInt(found[2]);
+    if (/\bdirect answer\b/i.test(text)) return `${found[1]} + ${found[2]} = ${sum}₁₀ = ${sum.toString(2)}₂.`;
+    return binaryAddition(found[1], found[2]);
+  }
   found = text.match(/^(?:(?:please\s+)?convert\s+)?(\d{1,100})\s+(?:(?:convert\s+)?to\s+(?:base\s*2|binary)|(?:from\s+decimal\s+)?to\s+binary)$/i);
   if (found) {
     const decimal = BigInt(found[1]);

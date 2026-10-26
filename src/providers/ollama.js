@@ -77,7 +77,7 @@ export class OllamaProvider {
       if (buffer.trim()) parseLine(buffer);
     } catch (error) {
       if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
-        throw new Error('Ollama stream timed out.');
+        throw new Error('Ollama stream timed out. Any visible partial answer may be incomplete and was not saved. Try /diagnostics and request a shorter response.');
       }
       throw error;
     }

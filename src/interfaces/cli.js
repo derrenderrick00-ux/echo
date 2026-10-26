@@ -3,7 +3,7 @@ import { stdin as input, stdout as output } from 'node:process';
 import { AssistantController, HELP } from '../core/assistant.js';
 
 export async function runCli({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, timeZone = 'Africa/Nairobi' }) {
-  console.log('Echo v0.1.0-rc1 — Phase 1 offline assistant candidate');
+  console.log('Echo v0.1.0-rc.3 — Phase 1 voice controls candidate');
   console.log(`Local model: ${model} | Memory embeddings: ${embeddingModel}`);
   console.log(HELP);
   if (!profileState.loaded) console.log('No private profile loaded.');
@@ -23,6 +23,11 @@ export async function runCli({ session, memory, calendar, model, embeddingModel,
       if (result.exit) { quitting = true; rl.close(); return; }
       if (result.streamed) { output.write('\n'); if (result.truncated) console.log('echo> Output reached the configured limit. Type /continue.'); }
       else if (result.text) console.log(`echo> ${result.text}`);
+      if (result.heard) console.log(`echo> Heard: ${result.heard}`);
+      if (result.speak && result.text) {
+        try { await voice.speak(result.text); }
+        catch (error) { console.error(`echo> Spoken reply failed: ${error.message}`); }
+      }
     } catch (error) {
       if (streamed) output.write('\n');
       console.error(`echo> ${error.message}`);

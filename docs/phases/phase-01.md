@@ -1,6 +1,6 @@
 # Phase 1 — Offline Core, Routine and Conversation
 
-**Version:** v0.1.0-rc.1. **Status:** implementation candidate; hardware acceptance incomplete.
+**Version:** v0.1.0-rc.3. **Status:** implementation candidate; hardware acceptance incomplete.
 
 ## Milestone 1.1 — Conversation and accuracy
 
@@ -29,8 +29,10 @@
 
 - [x] Optional Whisper CLI WAV transcription, microphone capture and Piper speech playback adapters
 - [x] Missing-model and unavailable-tool errors
+- [x] On-demand spoken reply, voice input-to-text, one-shot two-way voice chat and session speech mode in the CLI
+- [x] Local path/executable preflight checks and typed confirmation for transcribed changes
 - [ ] Real target-device installation, microphone, speaker, CPU and quality tests
-- [ ] Two-way hands-free speech and interruption handling
+- [ ] Hands-free continuous listening, wake-word recognition and speech interruption handling
 
 ## Milestone 1.5 — Reliability and optimization
 

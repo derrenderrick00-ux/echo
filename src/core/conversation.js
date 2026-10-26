@@ -8,12 +8,15 @@ export class ConversationSession {
     this.memory = memory;
     this.maxTurns = maxTurns;
     this.history = [];
+    this.contextProvider = null;
   }
 
   async reply(message, { onToken } = {}) {
     const content = String(message).trim();
     if (!content) throw new Error('Message is empty.');
     const messages = [{ role: 'system', content: makeSystemPrompt(this.profile) }];
+    const personalization = this.contextProvider?.();
+    if (personalization) messages.push({ role: 'system', content: personalization.slice(0, 1000) });
     if (this.memory) {
       const { results } = await this.memory.searchNotes(content, { limit: 3, semantic: false });
       const wantsMemories = /(?:what|which|do you|can you).*\b(?:remember|saved|note|told you|asked you)\b|\bmy notes\b/i.test(content);

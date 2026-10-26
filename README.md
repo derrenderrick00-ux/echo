@@ -1,8 +1,19 @@
 # Echo — Local-First Personal AI Agent
 
-**Version:** `0.1.0-rc.1` | **Phase 0:** foundation complete | **Phase 1:** implementation candidate, hardware acceptance pending.
+**Version:** `0.2.0-rc.1` | **Phase 0:** baseline complete | **Phase 1:** acceptance pending | **Phase 2:** coding, ideation and decision journal under development.
 
 Echo is a modular offline-first AI assistant running its local conversational model through Ollama. The public repository contains no populated personal profile. The owner is a human, and Echo is a software agent.
+
+
+## Phase 2 coding, ideation and decision journal — v0.2.0-rc.1
+
+This additive update preserves the working Phase 0/1 features and introduces private idea ratings (`/idea`), an explicit decision/outcome journal (`/decision`), selected preferences (`/preference`), and user-initiated JavaScript review and generation (`/code`). Run `/phase2 help` for verified commands and `/resources` to see current Linux memory pressure.
+
+Ideas, decisions and preferences persist to the Git-ignored `data/echo-phase2.json`. Code files must be placed in the private `data/code-workspace/` folder. Generative coding suggestions are not verified, not run, and may contain mistakes. Explicit preferences are passed to Ollama in limited context; model weights are not retrained.
+
+**Sandbox execution is disabled by default.** Ubuntu security advisories and kernel namespace policies must be reviewed before enabling it on a supported host. Even when explicitly enabled, code uses bubblewrap in a separate namespace with a deadline and output limit; failure to initialize isolation refuses execution without an unsafe fallback. Do not treat this as a proof of resistance to malicious programs.
+
+Read `docs/PHASE2_PLAN.md`, `docs/PHASE2_ACCEPTANCE.md` and `docs/PHASE2_TEST_REPORT.md` before marking any Phase 2 milestone complete. For development on the 8 GB ThinkPad, close heavy apps and consider the 1B local model when available RAM is low; `/resources` reports memory available, not a guarantee of inference speed.
 
 ## Implemented
 

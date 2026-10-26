@@ -11,6 +11,8 @@ import { LocalVoice } from './providers/voice.js';
 import { OllamaProvider } from './providers/ollama.js';
 import { OllamaEmbeddings } from './providers/embeddings.js';
 import { runCli } from './interfaces/cli.js';
+import { Phase2Workspace } from './core/phase2-workspace.js';
+import { CodeSandbox } from './tools/sandbox.js';
 
 export function statusText() {
   return phases.map(({ id, name, status }) => `Phase ${id}: ${name} [${status}]`).join('\n');
@@ -26,8 +28,11 @@ export async function main() {
   const memory = await new MemoryStore({ filePath: config.memoryPath, embedder }).init();
   const calendar = await new LocalCalendar({ filePath: resolve(config.root, 'data/echo-calendar.json') }).init();
   const voice = new LocalVoice({ whisperModel: config.whisperModel, whisperBin: config.whisperBin, piperModel: config.piperModel, piperBin: config.piperBin, piperMode: config.piperMode });
+  const phase2Workspace = await new Phase2Workspace({ filePath: resolve(config.root, 'data/echo-phase2.json') }).init();
+  const codeSandbox = await new CodeSandbox({ workspaceDir: resolve(config.root, 'data/code-workspace'), enabled: process.env.ECHO_EXPERIMENTAL_CODE_EXECUTION === '1' }).init();
   const session = createPhase00({ provider, profile: profileState.profile, memory, maxTurns: config.maxTurns });
-  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, timeZone: config.timeZone });
+  session.contextProvider = () => phase2Workspace.promptContext();
+  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, timeZone: config.timeZone });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -6,15 +6,18 @@ import { briefing } from './briefings.js';
 import { summarizeText, decisionPrompt } from './summarize.js';
 import { Games } from './games.js';
 import { timeoutExplanation, voiceSetup, javascriptDateExplanation } from './diagnostics.js';
+import { Phase2Commands } from './phase2-commands.js';
+import { resourceSummary } from './resources.js';
 
 export const HELP = [
-  'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /reset /continue /exit',
+  'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /resources /reset /continue /exit',
   'Notes: /remember <text> /notes /recall <query> /forget <note-id> /index /summarize notes',
   'Tasks: /task list /task add <text> /task done <id or description> /routine',
   'Calendar: /event list /event add 2026-11-01T09:00+03:00 | Event name /event delete <id>',
   'Routine: /brief morning /brief evening',
   'Learning: /summarize <text> /decide Option A | Option B',
   'Games: /game trivia technology /game trivia general /game wordchain /game guess /game quit',
+  'Phase 2: /phase2 help /code check /code files /code run <name.js> /code generate <requirement> /idea /decision /preference',
   'Voice: /voice check /voice test /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
   'Offline calendar alerts only run while this CLI remains open. No internet or messaging actions are implemented.',
 ].join('\n');
@@ -35,7 +38,7 @@ function formatTaskResult(result, reference) {
 }
 
 export class AssistantController {
-  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date() }) {
+  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null }) {
     this.session = session;
     this.memory = memory;
     this.calendar = calendar;
@@ -51,6 +54,7 @@ export class AssistantController {
     this.lastMathPlain = null;
     this.lastOutput = '';
     this.voiceReplies = false;
+    this.phase2 = phase2Workspace && codeSandbox ? new Phase2Commands({ workspace: phase2Workspace, sandbox: codeSandbox }) : null;
   }
   async answer(input, { onToken } = {}) {
     const result = await this.process(input, { onToken });
@@ -116,6 +120,7 @@ export class AssistantController {
     if (lower === '/identity') return { text: this.identity() };
     if (lower === '/date') return { text: this.dateTime() };
     if (lower === '/diagnostics') return { text: this.diagnostics() };
+    if (lower === '/resources') return { text: await resourceSummary() };
     if (lower === '/reset') { this.session.reset(); this.lastAnswer = ''; this.games.state = null; return { text: 'Conversation cleared. Saved notes, tasks and calendar events remain.' }; }
     if (lower === '/continue' || lower === 'continue your last answer') {
       if (!this.lastAnswer) return { text: 'There is no previous answer to continue.' };
@@ -189,6 +194,11 @@ export class AssistantController {
       const utterance = lower === '/voice speak' ? this.lastOutput : line.slice(13).trim();
       await this.voice.speak(utterance);
       return { text: 'Finished local speech playback.', announcement: true };
+    }
+    if (this.phase2) {
+      const action = await this.phase2.handle(line);
+      if (action?.askModel) return this.chat(action.askModel, onToken);
+      if (action) return action;
     }
     if (line.startsWith('/')) return { text: 'Unknown command. Use /help for the actual supported commands.' };
     const intent = parseIntent(line);

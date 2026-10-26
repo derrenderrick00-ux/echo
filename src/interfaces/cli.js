@@ -2,12 +2,12 @@ import { createInterface } from 'node:readline';
 import { stdin as input, stdout as output } from 'node:process';
 import { AssistantController, HELP } from '../core/assistant.js';
 
-export async function runCli({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, timeZone = 'Africa/Nairobi' }) {
-  console.log('Echo v0.1.0-rc.4 — Voice and inference diagnostics');
+export async function runCli({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, phase2Workspace = null, codeSandbox = null, timeZone = 'Africa/Nairobi' }) {
+  console.log('Echo v0.2.0-rc.1 — Phase 2 coding and decision candidate');
   console.log(`Local model: ${model} | Memory embeddings: ${embeddingModel}`);
   console.log(HELP);
   if (!profileState.loaded) console.log('No private profile loaded.');
-  const controller = new AssistantController({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, timeZone });
+  const controller = new AssistantController({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, timeZone });
   const rl = createInterface({ input, output, terminal: Boolean(input.isTTY), prompt: 'you> ' });
   let closed = false;
   let quitting = false;

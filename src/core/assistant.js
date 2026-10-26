@@ -8,6 +8,7 @@ import { Games } from './games.js';
 import { timeoutExplanation, voiceSetup, javascriptDateExplanation } from './diagnostics.js';
 import { Phase2Commands } from './phase2-commands.js';
 import { resourceSummary } from './resources.js';
+import { Phase3Commands } from './phase3-commands.js';
 
 export const HELP = [
   'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /resources /reset /continue /exit',
@@ -18,8 +19,9 @@ export const HELP = [
   'Learning: /summarize <text> /decide Option A | Option B',
   'Games: /game trivia technology /game trivia general /game wordchain /game guess /game quit',
   'Phase 2: /phase2 help /code check /code files /code run <name.js> /code generate <requirement> /idea /decision /preference',
+  'Phase 3: /phase3 help /actions /approve <id> /reject <id> /audit /device /sync',
   'Voice: /voice check /voice test /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
-  'Offline calendar alerts only run while this CLI remains open. No internet or messaging actions are implemented.',
+  'Offline calendar alerts only run while this CLI remains open. No internet, messaging, or unattended remote actions are implemented.',
 ].join('\n');
 
 function formatNotes(notes) {
@@ -38,7 +40,7 @@ function formatTaskResult(result, reference) {
 }
 
 export class AssistantController {
-  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null }) {
+  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null }) {
     this.session = session;
     this.memory = memory;
     this.calendar = calendar;
@@ -54,7 +56,9 @@ export class AssistantController {
     this.lastMathPlain = null;
     this.lastOutput = '';
     this.voiceReplies = false;
+    this.voicePending = null;
     this.phase2 = phase2Workspace && codeSandbox ? new Phase2Commands({ workspace: phase2Workspace, sandbox: codeSandbox }) : null;
+    this.phase3 = actionJournal && manualSync ? new Phase3Commands({ journal: actionJournal, sync: manualSync, memory }) : null;
   }
   async answer(input, { onToken } = {}) {
     const result = await this.process(input, { onToken });
@@ -78,9 +82,26 @@ export class AssistantController {
     await this.voice.requireInput();
     const transcript = (await this.voice.listen({ seconds })).trim();
     if (!transcript) return { text: 'No speech recognized. Nothing was sent to Echo.', heard: '', announcement: true };
+    if (this.voicePending && /^(?:confirm|yes\s+confirm|yes\s+save\s+it)$/i.test(transcript)) {
+      const pending = this.voicePending;
+      this.voicePending = null;
+      if (Date.now() - pending.at > 60_000) return { text: 'Spoken approval expired. Repeat your request.', heard: transcript, announcement: true };
+      const result = pending.type === 'remember' ? await this.remember(pending.text) : await this.addTask(pending.text);
+      return { ...result, heard: transcript, speak, announcement: true };
+    }
+    if (this.voicePending && /^(?:cancel|no\s+cancel|no\s+don't)$/i.test(transcript)) {
+      this.voicePending = null;
+      return { text: 'Cancelled. Nothing was saved.', heard: transcript, speak, announcement: true };
+    }
+    this.voicePending = null;
     const change = parseIntent(transcript);
-    if (transcript.startsWith('/') || ['remember', 'addTask', 'completeTask'].includes(change?.type)) {
-      return { text: `I heard: ${transcript}\nThis could modify stored data or execute a command. Type it to confirm.`, heard: transcript, announcement: true };
+    if (transcript.startsWith('/')) return { text: `I heard: ${transcript}\nSlash commands cannot run from speech. Type it to confirm.`, heard: transcript, announcement: true };
+    if (['remember', 'addTask', 'suggestTask'].includes(change?.type)) {
+      this.voicePending = { type: change.type === 'remember' ? 'remember' : 'addTask', text: change.text, at: Date.now() };
+      return { text: `I heard: ${transcript}\nThis would save information. Nothing has been saved yet. To confirm, say 'confirm' in your next /voice chat 5 or /voice ask 5 exchange, or Type it to confirm. Say 'cancel' to discard.`, heard: transcript, speak, announcement: true };
+    }
+    if (['completeTask', 'deleteTask', 'deleteNote'].includes(change?.type)) {
+      return { text: `I heard: ${transcript}\nThis would change existing data. Type it to confirm.`, heard: transcript, announcement: true };
     }
     const result = await this.process(transcript, { onToken });
     return { ...result, heard: transcript, speak: speak || result.speak };
@@ -195,6 +216,10 @@ export class AssistantController {
       await this.voice.speak(utterance);
       return { text: 'Finished local speech playback.', announcement: true };
     }
+    if (this.phase3) {
+      const action = await this.phase3.handle(line);
+      if (action) return action;
+    }
     if (this.phase2) {
       const action = await this.phase2.handle(line);
       if (action?.askModel) return this.chat(action.askModel, onToken);
@@ -205,7 +230,21 @@ export class AssistantController {
     if (intent?.type === 'remember') return this.remember(intent.text);
     if (intent?.type === 'clarifyMemory') return { text: 'Tell me exactly what to save: /remember <text>' };
     if (intent?.type === 'completeTask') return this.finish(intent.reference);
-    if (intent?.type === 'addTask') return this.addTask(intent.text);
+    if (intent?.type === 'addTask') {
+      const result = await this.addTask(intent.text);
+      if (intent.reminderUnsupported) result.text += '\nSaved as a task only; Echo did not schedule a notification.';
+      return result;
+    }
+    if (intent?.type === 'suggestTask') {
+      if (!this.phase3) return { text: 'Would you like me to save that as a task? Say: add a task to ' + intent.text };
+      const item = await this.phase3.journal.propose('add-task', `Add task: ${intent.text.slice(0, 180)}`, { text: intent.text });
+      return { text: this.phase3.proposalText(item) };
+    }
+    if (intent?.type === 'deleteTask' || intent?.type === 'deleteNote') {
+      if (!this.phase3) return { text: 'Delete operations require Phase 3 approval controls.' };
+      return this.phase3.handle(`${intent.type === 'deleteTask' ? '/task' : '/note'} delete ${intent.id}`);
+    }
+    if (intent?.type === 'unsupportedExternal') return { text: 'Echo cannot send messages, emails, or calls in this release. Nothing was sent or scheduled.' };
     if (intent?.type === 'math') {
       const match = intent.result.match(/^(\d+) \+ (\d+) = (\d+) \(decimal\)[\s\S]*?Verification: ([01]+)₂/);
       this.lastMathPlain = match ? `${match[1]} + ${match[2]} = ${match[3]}₁₀ = ${match[4]}₂.` : intent.result;
@@ -244,7 +283,13 @@ export class AssistantController {
   }
   dateTime() { return new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'medium', timeZone: this.timeZone }).format(this.clock()) + ` (${this.timeZone}, device clock)`; }
   async remember(text) { const { note, indexed } = await this.memory.addNote(text); return { text: `Saved note [${note.id}]: ${note.text}. ${indexed ? 'Semantic index ready.' : 'Keyword search only until indexing succeeds.'}` }; }
-  async addTask(text) { const t = await this.memory.addTask(text); return { text: `Added task [${t.id}]: ${t.text}` }; }
+  async addTask(text) {
+    const clean = String(text).trim();
+    const duplicate = this.memory.listTasks({ includeDone: false }).find(t => t.text.toLowerCase().replace(/\s+/g, ' ').trim() === clean.toLowerCase().replace(/\s+/g, ' '));
+    if (duplicate) return { text: `Already on your task list [${duplicate.id}]: ${duplicate.text}. No duplicate created.` };
+    const t = await this.memory.addTask(clean);
+    return { text: `Added task [${t.id}]: ${t.text}` };
+  }
   async finish(reference) { return { text: formatTaskResult(await this.memory.completeTaskByReference(reference), reference) }; }
   async chat(text, onToken) {
     const answer = await this.session.reply(text, { onToken });

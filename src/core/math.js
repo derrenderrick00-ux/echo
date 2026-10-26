@@ -32,8 +32,36 @@ export function binaryAddition(left, right) {
   ].join('\n');
 }
 
+export function binaryAdditionMany(numbers) {
+  if (!Array.isArray(numbers) || numbers.length < 3 || numbers.length > 10) throw new Error('Provide between 3 and 10 integers.');
+  const values = numbers.map(value => BigInt(value));
+  if (values.some(value => value < 0n || value > 1000000000000000000n)) throw new Error('Binary demonstration accepts non-negative integers up to 10^18.');
+  const sum = values.reduce((a, b) => a + b, 0n);
+  const width = sum.toString(2).length;
+  const steps = [];
+  let carry = 0;
+  for (let i = 0; i < width; i++) {
+    const bits = values.map(value => Number((value >> BigInt(i)) & 1n));
+    const total = bits.reduce((a,b) => a + b, carry);
+    steps.push(`Column ${i} (2^${i}): ${bits.join(' + ')} + carry ${carry} = ${total}; write ${total % 2}, carry ${Math.floor(total / 2)}.`);
+    carry = Math.floor(total / 2);
+  }
+  return [
+    `${numbers.join(' + ')} = ${sum} (decimal)`,
+    ...values.map((value, index) => `${numbers[index]} = ${value.toString(2)} (binary)`),
+    'Binary column addition (right to left):',
+    ...values.map((value, index) => `${index === values.length - 1 ? '+ ' : '  '}${value.toString(2).padStart(width)}`),
+    `  ${'-'.repeat(width)}`,
+    `  ${sum.toString(2)}`,
+    ...steps,
+    `Verification: ${sum.toString(2)}₂ = ${sum}₁₀.`,
+  ].join('\n');
+}
+
 export function calculateText(input) {
   const text = String(input).trim().replace(/[?.!]$/, '').trim();
+  const sequence = text.match(/^(?:(?:please\s+)?(?:show\s+(?:me\s+)?the\s+(?:step[ -]by[ -]step\s+)?(?:calculation\s+)?process\s+for|calculate|compute)\s+)?(\d{1,19}(?:\s*\+\s*\d{1,19}){2,9})\s+(?:(?:step[ -]by[ -]step\s+)?(?:calculation\s+)?in\s+binary|(?:step[ -]by[ -]step\s+)?binary\s+(?:addition|calculation)|in\s+base\s*2)$/i);
+  if (sequence) return binaryAdditionMany(sequence[1].split('\+').map(x => x.trim()));
   const claim = text.match(/^(?:i (?:think|believe) )?(-?\d{1,19})\s*([+*-])\s*(-?\d{1,19})\s*(?:=|is|equals)\s*(-?\d{1,30})$/i);
   if (claim) {
     const a = BigInt(claim[1]), b = BigInt(claim[3]), stated = BigInt(claim[4]);

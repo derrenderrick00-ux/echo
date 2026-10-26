@@ -108,3 +108,26 @@ Within Echo, `/voice check` checks the configured files, `/voice speak Hello Ech
 This targeted patch adds `/voice test`, audible confirmation when `/voice on` succeeds, visible speech start/end messages, and a short spoken error if a local Ollama request fails while spoken replies are enabled. If a voice activation announcement cannot be played, Echo turns voice mode back off rather than leaving it incorrectly enabled.
 
 The update does not download new models, modify `.env`, change private notes/tasks/calendar/profile data, or alter Git history. It does not guarantee the local language model will answer before timeout, or that ALSA sound will be audible through a particular desktop output device. Follow `docs/VOICE_TROUBLESHOOTING.md` for hardware and model checks.
+
+## Phase 3 candidate — natural tasks and permissioned sync
+
+Echo v0.3.0-rc.1 introduces local natural-language task actions, a typed approval queue for sensitive changes, an action audit and an **optional** manually transferred encrypted note/task snapshot between explicitly trusted devices. It does not send data over a network or run unattended actions.
+
+Examples:
+
+```text
+Add networking revision to my tasks
+What is on my plate?
+I need to study Express.js
+/actions
+/approve <id>
+Mark networking revision done
+29+76+19 step by step calculation in binary
+/phase3 help
+```
+
+Optional device commands include `/device init`, `/device trust <filename.pem>`, `/device peers`, `/sync export <peer-id>`, `/sync preview <filename.echosync>` and `/sync import <filename.echosync>`. Read `docs/PHASE3_PLAN.md` and `docs/PHASE3_ACCEPTANCE.md` before exchanging data. Device private keys and encrypted snapshots are stored in ignored `data/sync/` directories.
+
+Spoken task creation requires an explicit follow-up confirmation to prevent transcription errors from silently modifying saved data. You can use `/voice ask 5` for the request and then again for `confirm` or `cancel`.
+
+Phase 3 is in progress; automatic network sync, autonomous actions, cloud APIs and Android support are not delivered in this release.

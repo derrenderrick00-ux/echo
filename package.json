@@ -1,8 +1,8 @@
 {
   "name": "echo-personal-agent",
-  "version": "0.2.0-rc.1",
+  "version": "0.3.0-rc.1",
   "private": true,
-  "description": "Local-first personal AI agent with early Phase 2 coding, ideation and decision journal",
+  "description": "Local-first personal AI agent with Phase 3 candidate with natural task intent, approval journal, and manual encrypted sync",
   "type": "module",
   "engines": {
     "node": ">=24 <25"

@@ -7,9 +7,10 @@ import { statusText } from '../src/echo.js';
    assert.deepEqual(phases.map(phase => phase.id), [0, 1, 2, 3, 4, 5]);
  });
 
- test('only phase 0 is in progress', () => {
-   assert.equal(phases[0].status, 'in-progress');
-   assert.ok(phases.slice(1).every(phase => phase.status === 'planned'));
+ test('phase 0 complete, phase 1 under development', () => {
+   assert.equal(phases[0].status, 'complete');
+   assert.equal(phases[1].status, 'in-progress');
+   assert.ok(phases.slice(2).every(phase => phase.status === 'planned'));
  });
 
  test('status command mentions phase 0', () => {

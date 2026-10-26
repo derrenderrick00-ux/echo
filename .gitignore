@@ -1,31 +1,39 @@
-# Dependencies
+# Dependencies and logs
 node_modules/
+npm-debug.log*
+*.log
 
-# Environment secrets
+# Sensitive local state
 .env
 .env.*
 !.env.example
-
-# Runtime data
-data/*
+data/**
 !data/.gitkeep
-
-# Local user profile
 config/profile.json
-
-# Databases
-*.db
 *.sqlite
 *.sqlite3
+*.db
+*.db-wal
+*.db-shm
 
-# Logs
-*.log
-
-# Python
+# Runtime and generated files
+coverage/
+dist/
+build/
+.cache/
+*.wav
+*.mp3
+*.ogg
+*.gguf
 __pycache__/
 .venv/
 
-# Editor and OS files
+# Editors and OS
 .vscode/
+.idea/
 .DS_Store
-
+Echo_Master_Document.private.md
+docs/private/
+*.local.md
+echo-*.txt
+config/*.private.json

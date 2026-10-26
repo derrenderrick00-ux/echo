@@ -100,7 +100,7 @@ export class MemoryStore {
     this.checkReady();
     const dir = dirname(this.filePath);
     await mkdir(dir, { recursive: true, mode: 0o700 });
-    await chmod(dir, 0o700); // Best effort private data directory on Unix.
+    await chmod(dir, 0o700);
     const temporary = `${this.filePath}.${randomUUID()}.tmp`;
     try {
       await writeFile(temporary, `${JSON.stringify(this.data, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
@@ -123,13 +123,12 @@ export class MemoryStore {
     if (this.data.notes.length >= MAX_NOTES) throw new Error('Maximum note count reached.');
     const note = { id: randomUUID().slice(0, 8), text: clean, createdAt: this.clock().toISOString() };
     let indexed = false;
-    // Saving a note never depends on an embedding service being available.
     if (this.embedder) {
       try {
         const values = await this.embedder.embed(clean.slice(0, 750));
         note.vector = { model: this.embedder.model, values };
         indexed = true;
-      } catch { /* Keep note, allow /index to try again later. */ }
+      } catch {  }
     }
     this.data.notes.push(note);
     await this.save();
@@ -166,7 +165,7 @@ export class MemoryStore {
     if (!clean) return { results: [], mode: 'none' };
     let vector = null;
     if (semantic && this.embedder && this.data.notes.some(n => n.vector?.model === this.embedder.model)) {
-      try { vector = await this.embedder.embed(clean.slice(0, 750)); } catch { /* lexical fallback */ }
+      try { vector = await this.embedder.embed(clean.slice(0, 750)); } catch {  }
     }
     const scored = this.data.notes.map(note => {
       const lexical = overlap(clean, note.text);
@@ -194,8 +193,6 @@ export class MemoryStore {
     return { ...task };
   }
 
-  // Name completion is safe only when exactly one open task matches.
-  // Existing completeTask(id) remains available for exact-ID callers.
   async completeTaskByReference(reference) {
     this.checkReady();
     const candidate = String(reference).trim();

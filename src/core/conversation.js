@@ -15,7 +15,6 @@ export class ConversationSession {
     if (!content) throw new Error('Message is empty.');
     const messages = [{ role: 'system', content: makeSystemPrompt(this.profile) }];
     if (this.memory) {
-      // Keyword retrieval is fast and keeps CPU-only chat responsive. Explicit /recall uses vectors.
       const { results } = await this.memory.searchNotes(content, { limit: 3, semantic: false });
       const wantsMemories = /(?:what|which|do you|can you).*\b(?:remember|saved|note|told you|asked you)\b|\bmy notes\b/i.test(content);
       const selected = results.length ? results : wantsMemories ? this.memory.listNotes().slice(-3) : [];

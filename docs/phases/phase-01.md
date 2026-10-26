@@ -1,18 +1,42 @@
-# Phase 1 — Offline Core, Routine & Natural Conversation
+# Phase 1 — Offline Core, Routine and Conversation
 
-**Status:** Planned; begins only after Phase 0 acceptance.  
-**Source:** Echo Master Document, Part 1, Section 5 (original Weeks 3–6 estimate; not a deadline).
+**Version:** v0.1.0-rc.1. **Status:** implementation candidate; hardware acceptance incomplete.
 
-**Goal:** A substantially more natural offline personal assistant with multi-turn dialogue, practical daily routine support, note capture and voice input/output.
+## Milestone 1.1 — Conversation and accuracy
 
-## Proposed implementation milestones (consistent with master requirements)
+- [x] Deterministic date/time, real notes/tasks, identity, menu and capabilities
+- [x] Accurate binary-column addition and arithmetic tool routing
+- [x] Stateful trivia, guessing and word chain, with `q` quit
+- [x] More configurable response tokens and `/continue`
+- [ ] Verify local model accuracy and longer replies during offline live sessions
 
-- [ ] **1.1 — Conversation management:** intent state, clarification/correction handling, topic shifts, controlled conversational summaries, and reliable quiz/game quit controls if games are offered.
-- [ ] **1.2 — Daily routine engine:** calendars and task integration with explicit permissions, robust scheduling, genuine reminders where supported, morning and evening briefings. Do not claim a reminder is scheduled without an actual scheduler.
-- [ ] **1.3 — Note intelligence and decisions:** note capture and summarization, extraction of actionable tasks with review/confirmation, basic decision-support prompts.
-- [ ] **1.4 — Offline voice:** local speech-to-text and text-to-speech, microphone permissions and accessibility; measure CPU usage on the ThinkPad. Support text fallback.
-- [ ] **1.5 — Quality and safety acceptance:** repeatable tests across restarts, identity consistency, latency, fallback behavior, truthful capability/status reporting, and safeguarding personal data.
+## Milestone 1.2 — Routines and calendar
 
-**Architectural principle:** Keep reusable services in `src/core/`, `src/providers/`, `src/memory/`, and `src/tools/`; `src/phases/phase-01.js` wires together new functionality rather than duplicating the Phase 0 implementation.
+- [x] Offline local calendar storage with timezone offsets
+- [x] On-demand briefings from saved tasks, goals and events
+- [x] In-process alert polling while the CLI remains active
+- [ ] Calendar-provider sync and operating-system notifications when Echo is closed
+- [ ] Approved proactive briefing schedule and delivery
 
-**Exit criterion from master specification:** coherent natural offline conversations and daily routine management autonomously *within user-defined authorization bounds*. Autonomous external actions and multi-device sync are still expanded in Phase 3.
+## Milestone 1.3 — Notes and decision support
+
+- [x] Persistent explicit notes and semantic recall
+- [x] Extractive summary and action phrase detection for supplied text
+- [x] LLM option comparison with an uncertainty instruction
+- [ ] Verified high-quality summarization of long files and voice recordings
+
+## Milestone 1.4 — Local voice
+
+- [x] Optional Whisper CLI WAV transcription, microphone capture and Piper speech playback adapters
+- [x] Missing-model and unavailable-tool errors
+- [ ] Real target-device installation, microphone, speaker, CPU and quality tests
+- [ ] Two-way hands-free speech and interruption handling
+
+## Milestone 1.5 — Reliability and optimization
+
+- [x] Mocked unit/integration tests, calendar fake-clock checks, CLI regression tests
+- [x] Public-master privacy split and private local data exclusions
+- [ ] Complete real offline device acceptance, performance reporting and extended failure tests
+- [ ] Harden storage encryption and permissions before sensitive deployment
+
+Phase 1 must not be described as complete until the master document's exit criteria and the relevant target-device acceptance tests have passed.

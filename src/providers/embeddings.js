@@ -1,4 +1,3 @@
-// Ollama's small all-minilm model generates local vector embeddings.
 export class OllamaEmbeddings {
   constructor({ baseUrl = 'http://127.0.0.1:11434', model = 'all-minilm',
                 fetchImpl = globalThis.fetch, timeoutMs = 90_000 } = {}) {

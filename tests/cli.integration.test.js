@@ -80,7 +80,7 @@ test('piped commands are not lost when stdin closes during async work', async ()
     assert.match(result.stdout, /Saved note/);
     assert.match(result.stdout, /Completed task/);
     assert.match(result.stdout, /1111010100/);
-    assert.match(result.stdout, /Not implemented: calendar sync/);
+    assert.match(result.stdout, /Not implemented: calendar-provider sync/);
     assert.match(result.stdout, /Usage: \/recall <search query>/);
     assert.match(result.stdout, /\[x\].*Complete networking revesion/);
     const saved = JSON.parse(await readFile(join(root, 'data/echo-memory.json'), 'utf8'));

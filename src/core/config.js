@@ -26,8 +26,8 @@ export function readConfig({ root = process.cwd(), env = process.env } = {}) {
     throw new Error('Phase 0 only supports ECHO_MODEL_PROVIDER=ollama.');
   }
   const maxTurns = Number(env.ECHO_MAX_TURNS ?? 4);
-  const maxOutputTokens = Number(env.ECHO_MAX_OUTPUT_TOKENS ?? 192);
-  const contextTokens = Number(env.ECHO_CONTEXT_TOKENS ?? 2048);
+  const maxOutputTokens = Number(env.ECHO_MAX_OUTPUT_TOKENS ?? 768);
+  const contextTokens = Number(env.ECHO_CONTEXT_TOKENS ?? 4096);
   if (!Number.isInteger(maxTurns) || maxTurns < 1 || maxTurns > 30) {
     throw new Error('ECHO_MAX_TURNS must be an integer from 1 to 30.');
   }
@@ -37,7 +37,13 @@ export function readConfig({ root = process.cwd(), env = process.env } = {}) {
   if (!Number.isInteger(contextTokens) || contextTokens < 1024 || contextTokens > 16384) {
     throw new Error('ECHO_CONTEXT_TOKENS must be between 1024 and 16384.');
   }
+  const timeZone = env.ECHO_TIME_ZONE || 'Africa/Nairobi';
+  try { new Intl.DateTimeFormat('en-GB', { timeZone }); }
+  catch { throw new Error('ECHO_TIME_ZONE must be a supported IANA timezone.'); }
   return {
+    timeZone,
+    whisperModel: env.ECHO_WHISPER_MODEL || '',
+    piperModel: env.ECHO_PIPER_MODEL || '',
     root, baseUrl: url.origin, model, embeddingModel, maxTurns, maxOutputTokens, contextTokens,
     profilePath: resolve(root, 'config/profile.json'),
     memoryPath: resolve(root, 'data/echo-memory.json'),

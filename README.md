@@ -1,57 +1,42 @@
 # Echo — Local-First Personal AI Agent
 
-**Release:** v0.0.4 (Phase 0 reliability candidate)  
-**Status:** Phase 0 is feature-complete against its basic scope, but acceptance on the developer's Ubuntu machine is pending. Phase 1 is **planned**, not yet implemented.
+**Version:** `0.1.0-rc.1` | **Phase 0:** foundation complete | **Phase 1:** implementation candidate, hardware acceptance pending.
 
-Echo is an offline-first personal AI assistant developed by Derrick. **Derrick is the human creator; Echo is the AI assistant.** The master specification is the source of truth for planned phases; never confuse future features with implemented capabilities.
+Echo is a modular offline-first AI assistant running its local conversational model through Ollama. The public repository contains no populated personal profile. The owner is a human, and Echo is a software agent.
 
-## What works now
+## Implemented
 
-- Local conversations through Ollama with streamed text output and a private startup profile.
-- Explicit notes saved to local disk, recalled by keyword or local vector embeddings (`all-minilm`).
-- Local tasks with persistent completion state, referenced by task ID **or unique task description**.
-- On-demand factual routine snapshot from manually saved tasks and profile goals; **not a calendar, notification, or alarm**.
-- Deterministic basic arithmetic and decimal-to-binary conversion (not guessed by the LLM).
-- Explicitly phrased natural-language requests such as `Remember that ...`, `... add that to memory`, or `I have completed ...`, with confirmation. No automatic saving of ordinary chat.
-- Helpful `/abilities` and `/identity` outputs. Robust queued CLI input even when stdin is piped.
+- Local Ollama conversations, private startup profile, explicit persistent notes, keyword and semantic search, task management.
+- Deterministic arithmetic, decimal-to-binary conversion and step-by-step binary addition, plus a host-clock date/time command.
+- Exact menu, capabilities and task/note queries from application state instead of invented model responses.
+- A local calendar with timezone-qualified event dates, saved event persistence and due-event checks while Echo's CLI is running.
+- On-demand morning and evening briefings derived from saved profile goals, tasks and local calendar entries.
+- Extractive note summarization and structured decision-comparison prompts; a model's recommendation is not independently verified.
+- Stateful trivia, word chain and number guessing with `q` to quit.
+- Optional local Whisper CLI transcription and Piper speech output adapters, requiring separately installed binaries and voice models.
+- A higher configurable response token budget and `/continue` for long answers.
 
-**Not implemented:** real alarms, calendar sync, voice commands, mobile clients, internet browsing, system control, autonomous actions, game-state tracking or phone calls. Local notes are plaintext protected by OS file permissions, **not encrypted at rest**. Never store passwords here.
+## Not yet implemented or validated
 
-## Requirements
+External calendar-provider synchronization, operating-system notifications while Echo is closed, background proactive briefings, native Android/Windows apps, E2E sync, phone calls, privileged autonomy, encryption-at-rest, or guaranteed LLM factual correctness. The voice adapters are **not operational** until their binaries and models are installed and verified on your computer. Phase 1 remains **in-progress** until those tests and the rest of the master specification's exit criteria pass.
 
-- Ubuntu and Node.js 24 (`node --version`), npm, Git.
-- Locally running Ollama (`systemctl status ollama`).
-- Chat model: `ollama pull llama3.2:1b` (existing baseline).
-- Optional stronger chat model: `ollama pull llama3.2:3b` (evaluate on 8 GB CPU-only laptop first).
-- Embedding model: `ollama pull all-minilm`.
+## Install on the existing Ubuntu repository
 
-## Upgrade from v0.0.3
-
-Do **not** replace your entire repository or delete `.git`, `.env`, `config/profile.json`, or `data/echo-memory.json`.
+Back up your private files before applying the patch. Do not remove `.git`, `.env`, `config/profile.json`, `data/`, or old notes.
 
 ```bash
 cd ~/Documents/echo
-git status
-# Back up your local memory outside the repository if you value these notes:
-mkdir -p ~/Documents/echo-private-backups
-cp -a data ~/Documents/echo-private-backups/data-before-v004
-# Assuming downloaded update ZIP is in ~/Downloads:
-unzip -o ~/Downloads/echo-v0.0.4-phase0-closeout-update.zip -d .
+mkdir -p ~/Documents/echo-private-backups/phase1
+cp -a data config/profile.json .env ~/Documents/echo-private-backups/phase1/
+unzip -o ~/Downloads/echo-phase1-v0.1.0-rc1-update.zip -d .
 npm install
 npm test
 npm start
 ```
 
-The patch ZIP contains **only public project files**. Existing `.env` and private profile remain unchanged.
+Requires Node.js 24, npm, Ollama locally available at `127.0.0.1:11434`, and already downloaded local models such as `llama3.2:3b` and `all-minilm`. `npm install` has no new third-party dependencies. Your private `.env` remains unchanged; add any new keys manually from `.env.example`.
 
-### Local model upgrade (optional)
-
-```bash
-ollama pull llama3.2:3b
-npm run benchmark -- llama3.2:1b llama3.2:3b
-```
-
-Use the results to choose between speed and accuracy. To select 3B, edit your private `.env`:
+Accuracy-first *testing* configuration:
 
 ```dotenv
 ECHO_MODEL_PROVIDER=ollama
@@ -59,86 +44,38 @@ ECHO_OLLAMA_URL=http://127.0.0.1:11434
 ECHO_OLLAMA_MODEL=llama3.2:3b
 ECHO_EMBED_MODEL=all-minilm
 ECHO_MAX_TURNS=4
-ECHO_MAX_OUTPUT_TOKENS=256
-ECHO_CONTEXT_TOKENS=2048
+ECHO_MAX_OUTPUT_TOKENS=768
+ECHO_CONTEXT_TOKENS=4096
+ECHO_TIME_ZONE=Africa/Nairobi
 ```
 
-**Note:** Config is read on startup; exit Echo and run `npm start` after changes. Your ThinkPad has 8 GB RAM and CPU-only inference; 3B may be slower or compete with browser/VS Code for memory. Model upgrade is **not guaranteed** to fix every error. Keep 1B as a fallback by changing just `ECHO_OLLAMA_MODEL`.
+Increasing output tokens can reduce abrupt explanations but increases inference time. A 3B model can still make mistakes; exact calculations and saved-state operations should use dedicated code paths rather than model guesses.
 
-### Commands
+## Commands
 
-| Command | What it does |
+| Command | Purpose |
 | --- | --- |
-| `/help` | Available commands |
-| `/identity` or `whoami` | Distinguish creator and assistant |
-| `/abilities` | Implemented vs planned functionality |
-| `/model` / `/profile` / `/status` | Diagnostics |
-| `/remember <text>` | Save one explicit note |
-| `/notes` | List saved notes |
-| `/recall <query>` | Keyword + semantic note search |
-| `/forget <id>` | Delete a saved note |
-| `/index` | Rebuild missing note embeddings |
-| `/task add <description>` | Add a manual task |
-| `/task list` | Show tasks and IDs |
-| `/task done <id or unique description>` | Complete one unambiguous task |
-| `/routine` / `/today` | Snapshot of profile goals and manual tasks |
-| `/reset` | Clear session chat (not saved notes or tasks) |
-| `/exit` / `exit` | Close application |
+| `/help`, `/menu` | Show actual supported commands |
+| `/abilities`, `/date`, `/identity`, `/status`, `/model` | Verified state and diagnostics |
+| `/remember <note>`, `/notes`, `/recall <query>`, `/forget <id>` | Explicit persistent memory |
+| `/task add <text>`, `/task list`, `/task done <id or text>` | Tasks |
+| `/event add 2026-11-01T09:00+03:00 \| Review algorithms` | Store a timezone-aware local appointment |
+| `/event list`, `/event delete <id>` | Read/delete local calendar entries |
+| `/brief morning`, `/brief evening`, `/routine` | Manual routine briefings |
+| `/summarize <text>`, `/summarize notes` | Extract text-based summary and action phrases |
+| `/decide SQLite \| PostgreSQL` | Ask model for a balanced options analysis |
+| `/game trivia technology`, `/game trivia general`, `/game wordchain`, `/game guess` | Locally tracked games; `q` quits |
+| `/voice status`, `/voice listen 5`, `/voice transcribe /path/clip.wav`, `/voice speak Hello` | Optional, offline speech operations |
+| `/continue`, `/reset`, `/exit` | Continue, clear transient dialogue, or exit |
 
-Explicit natural-language requests also work for certain commands:
+Whisper recording is transcribed locally; the app does not treat automatically transcribed text as an authorized action or automatically persist it.
 
-```text
-you> Remember that I am learning Express.js.
-echo> Saved note [...]. Semantic vector indexed.
-you> /task add Complete networking revesion
-echo> Added task [...]: Complete networking revesion
-you> I have completed networking revision
-echo> Completed task [...]: Complete networking revesion
-you> 980 convert to binary
-echo> 980 in binary is 1111010100.
-you> What can you do?
-Echo v0.0.4 — implemented now: ...
-```
+## Security, privacy and historical commits
 
-Unclear memory references (`add that to memory` without text) require you to provide the exact note. Unclear task matches list IDs rather than guessing.
+`.env`, `config/profile.json`, saved notes and calendar data are ignored by Git. Local JSON files have restrictive POSIX permissions but are **not encrypted at rest**. The public `Echo_Master_Document.md` contains a technical specification, not the owner's populated profile. Any formerly committed private document remains in Git history: **replacing a tracked document in a new commit does not erase it from Git history**. Do not stage raw user tests, chat logs, recordings or private backups.
 
-## File structure
+Run `git status` and inspect `git diff --cached --name-only` before any push. Do not run history rewriting or `git push --force` without deliberately planning recovery for every affected collaborator and clone.
 
-```text
-src/echo.js                   Application bootstrap
-src/phases/phase-00.js        Phase 0 composition and status
-src/phases/phase-01.js        Future Phase 1 placeholder
-src/core/conversation.js      Conversation context assembly
-src/core/config.js            Local model configuration validation
-src/core/intent.js            Limited natural-language intent router
-src/core/math.js              Deterministic arithmetic and base conversion
-src/core/capabilities.js      Grounded list of implemented features
-src/core/routine.js           Factual on-demand routine snapshot
-src/interfaces/cli.js         CLI input queue, commands and output
-src/memory/profile.js         Private profile and identity prompt
-src/memory/store.js           Private persistent notes and tasks
-src/providers/ollama.js       Local AI chat API
-src/providers/embeddings.js   Local note embeddings API
-scripts/benchmark-models.js   Offline small-model comparison
-config/profile.example.json  Public example only
-config/profile.json          YOUR private profile — ignored by Git
-data/echo-memory.json        YOUR private notes — ignored by Git
-```
+## Tests and acceptance
 
-## Testing and acceptance
-
-```bash
-npm test
-```
-
-Run the manual checks in [`docs/PHASE0_CLOSEOUT.md`](docs/PHASE0_CLOSEOUT.md) to decide whether Phase 0 can be marked complete. Check note persistence after exit/restart, task completion by description, exact binary conversion, private profile, offline model inference, and an on-demand `/routine` response. When passing, start the work listed in [`docs/phases/phase-01.md`](docs/phases/phase-01.md).
-
-## Security and Git
-
-- `.env`, `config/profile.json`, and `data/echo-memory.json` should be ignored by `.gitignore`.
-- Never add API keys, private user data, or the local memory file to GitHub.
-- Phase 0 itself only contacts loopback Ollama. Use local model tags; do not select cloud model aliases.
-- `data/echo-memory.json` uses restrictive Unix permissions and atomic writes, but no encryption at rest.
-- Natural-language requests may cause a local save **only when they explicitly request memory storage or task creation/completion**. Each such action is acknowledged.
-
-**License:** Not selected. GitHub visibility alone does not grant a license for redistribution.
+Run `npm test`, then use [`docs/PHASE1_ACCEPTANCE.md`](docs/PHASE1_ACCEPTANCE.md). Tests use fake-model and fake-clock inputs, so they are not a measure of local model factual accuracy, Whisper/Piper functionality or real reminder delivery. The implementation remains a release candidate until verified against the master-specification exit criteria on the target devices.

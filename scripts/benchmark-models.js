@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Offline, local-only benchmark. No private profile or notes are transmitted.
-// Run: npm run benchmark -- llama3.2:1b llama3.2:3b
 const models = process.argv.slice(2).length ? process.argv.slice(2) : ['llama3.2:1b', 'llama3.2:3b'];
 const cases = [
   { label: 'Identity', prompt: 'You are Echo, the AI assistant built by human Derrick. In one sentence, who is Derrick and who is Echo?', expected: 'Must distinguish Derrick (human) from Echo (AI).' },
@@ -43,6 +41,6 @@ for (const model of models) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, keep_alive: 0 }), signal: AbortSignal.timeout(30_000),
     });
-  } catch { /* unload is best effort */ }
+  } catch {  }
 }
 console.log('\nUse accuracy, responsiveness, and memory usage together; this is a small smoke benchmark, not a scientific evaluation.');

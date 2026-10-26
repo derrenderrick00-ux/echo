@@ -1,4 +1,3 @@
-// Local-only chat provider. Streaming makes slow CPU responses visible token-by-token.
 export class OllamaProvider {
   constructor({ baseUrl = 'http://127.0.0.1:11434', model = 'llama3.2:1b',
                 fetchImpl = globalThis.fetch, timeoutMs = 180_000, numCtx = 2048,
@@ -9,12 +8,14 @@ export class OllamaProvider {
     this.timeoutMs = timeoutMs;
     this.numCtx = numCtx;
     this.maxOutputTokens = maxOutputTokens;
+    this.lastTruncated = false;
   }
 
   async chat(messages, { onToken } = {}) {
     if (!Array.isArray(messages) || !messages.length) {
       throw new Error('Cannot query Ollama without messages.');
     }
+    this.lastTruncated = false;
     const streaming = typeof onToken === 'function';
     let response;
     try {
@@ -42,6 +43,7 @@ export class OllamaProvider {
     let data;
     try { data = await response.json(); }
     catch { throw new Error('Ollama returned invalid JSON.'); }
+    this.lastTruncated = data?.done_reason === 'length';
     const answer = data?.message?.content;
     if (typeof answer !== 'string' || !answer.trim()) throw new Error('Ollama returned an empty response.');
     return answer.trim();
@@ -60,7 +62,7 @@ export class OllamaProvider {
       if (item.error) throw new Error(`Ollama: ${item.error}`);
       const token = item.message?.content;
       if (typeof token === 'string' && token) { answer += token; onToken(token); }
-      if (item.done === true) completed = true;
+      if (item.done === true) { completed = true; this.lastTruncated = item.done_reason === 'length'; }
     };
     try {
       for await (const chunk of response.body) {

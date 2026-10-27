@@ -1,8 +1,8 @@
 {
   "name": "echo-personal-agent",
-  "version": "0.3.0-rc.1",
+  "version": "0.3.1-rc.1",
   "private": true,
-  "description": "Local-first personal AI agent with Phase 3 candidate with natural task intent, approval journal, and manual encrypted sync",
+  "description": "Echo Phase 3.1\u20133.5 candidate: natural task routing, verified base conversions, contextual coding, local daily review and quality evaluation",
   "type": "module",
   "engines": {
     "node": ">=24 <25"
@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node src/echo.js",
     "test": "node --test",
-    "benchmark": "node scripts/benchmark-models.js"
+    "benchmark": "node scripts/benchmark-models.js",
+    "test:record": "node scripts/record-quality-run.js",
+    "evaluate": "node scripts/evaluate-intents.js"
   }
 }

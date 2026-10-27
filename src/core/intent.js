@@ -1,8 +1,11 @@
 import { calculateText } from './math.js';
+import { parseBaseConversion } from './number-systems.js';
 
 export function parseIntent(raw) {
-  const text = String(raw).trim().replace(/^(?:(?:hey|hi|hello)\s+)?echo[,!:]\s*/i, '');
+  const text = String(raw).trim().replace(/^(?:(?:hey|hi|hello)\s+)?echo(?:[,!:]\s*|\s+(?=(?:what|can|could|please|tell|show|add|mark|remember|put|list|have|is|did|let|i|we|how|why)\b))/i, '');
   if (!text || text.startsWith('/')) return null;
+  const converted = parseBaseConversion(text);
+  if (converted !== null && !/\b(?:to|in)\s+(?:binary|bin|base\s*2)\b/i.test(text)) return { type: 'math', result: converted };
   const math = calculateText(text);
   if (math !== null) return { type: 'math', result: math };
   if (/\b(?:ollama stream timed out|what (?:do you mean by|does) [\"']?ollama stream timed out|why did (?:ollama|you) time out)\b/i.test(text)) return { type: 'timeoutInfo' };
@@ -17,6 +20,17 @@ export function parseIntent(raw) {
   if (/^(?:whoami|who am i\??|who is derrick\??|who created (?:you|echo)\??)$/i.test(text)) return { type: 'identity' };
   if (/^(?:what (?:can you do|are your (?:abilities|capabilities))\??|list your capabilities\.?|what features are implemented\??)$/i.test(text)) return { type: 'capabilities' };
   if (/^(?:what(?:'s| is) (?:the )?(?:date|day|time)(?: today| now)?\??|today'?s date\??|what date is today\??)$/i.test(text)) return { type: 'datetime' };
+  if (/^(?:what(?:\'s| is| are)?\s+(?:left|remaining|outstanding)|what (?:are|is) (?:my |the )?(?:pending|incomplete|unfinished|remaining|open|outstanding) (?:tasks|to-?dos)|(?:show|list|display|fetch)(?: me)?(?: my| the)?(?: pending| incomplete| unfinished| remaining| open) (?:tasks|to-?dos)|(?:do i have|are there) any (?:pending|open|unfinished) tasks|what (?:do i|should i) (?:still )?need to (?:do|finish)|which tasks (?:are|remain) (?:pending|incomplete))\??$/i.test(text)) return { type: 'pendingTasks' };
+  if (/^(?:what(?:\'s| is) (?:done|completed)|what (?:tasks|have i) (?:completed|finished|done)|(?:show|list|display)(?: me)?(?: my| the)? (?:completed|finished|done) tasks|which tasks are (?:completed|done))\??$/i.test(text)) return { type: 'completedTasks' };
+  if (/^(?:what (?:should|can) i (?:work on|do|study) next|which task should i (?:do|start|work on) first|what is my next (?:task|priority))\??$/i.test(text)) return { type: 'nextTask' };
+  if (/^(?:what are|show me|list|show|fetch|tell me|echo what are)(?: my| the)? (?:pending|open|unfinished|incomplete) tasks\??$/i.test(text)) return { type: 'pendingTasks' };
+  if (/^(?:pending tasks are (?:the )?(?:incomplete|unfinished) tasks|pending means incomplete|incomplete tasks are pending)(?:.*)$/i.test(text)) return { type: 'taskDefinition' };
+  let statusFound = text.match(/^(?:(?:have|did) i (?:finished?|completed?|done)|(?:is|was) (?:the )?(?:task )?(.+?) (?:finished|done|complete|completed)|what(?:\'s| is) the status of)\s+(.+?)\??$/i);
+  if (statusFound) return { type: 'taskStatus', reference: (statusFound[2] || statusFound[1]).trim() };
+  statusFound = text.match(/^(?:is|was) (?:the )?(?:task )?(.+?) (?:done|completed|complete|finished)\??$/i);
+  if (statusFound) return { type: 'taskStatus', reference: statusFound[1].trim() };
+  if (/^(?:let(?:\'s| us) (?:review|check) (?:our|my|today\'s)?\s*(?:progress|work|accomplishments)?(?: today)?|what (?:did|have) (?:we|i) (?:accomplish(?:ed)?|complet(?:e|ed)|finish(?:ed)?)(?: today)?|what (?:still remains|remains to be done)|(?:show|give|generate) (?:me )?(?:the )?(?:daily|today\'s) (?:progress )?review|review (?:today|our progress))\??$/i.test(text)) return { type: 'dailyReview' };
+  if (/^(?:i (?:will|plan to|intend to) (?:study|revise|review|practice|finish|learn|work on) .+)$/i.test(text)) return { type: 'suggestTask', text: text.replace(/^i (?:will|plan to|intend to)\s+/i, '') };
   if (/^(?:show|list|fetch|display|what are|tell me)(?: me)?(?: my| the)?(?: current| saved| open)? tasks\??$/i.test(text)) return { type: 'listTasks' };
   if (/^(?:show|list|fetch|display)(?: me)?(?: my| the)?(?: saved)? notes\??$/i.test(text)) return { type: 'listNotes' };
   if (/^(?:show|list|fetch|display)(?: me)?(?: my| the)?(?: calendar| events)\??$/i.test(text)) return { type: 'listEvents' };
@@ -37,9 +51,9 @@ export function parseIntent(raw) {
   found = text.match(/^task\s+done\s+(.+)$/i);
   if (found) return { type: 'completeTask', reference: found[1].trim() };
   found = text.match(/^(?:add\s+(?:a\s+)?task\s*:?|task\s+add)\s+(.+)$/i);
-  if (found) return { type: 'addTask', text: found[1].trim() };
+  if (found) return { type: 'addTask', text: found[1].trim().replace(/^to\s+/i, '') };
   found = text.match(/^(?:please\s+)?(?:can you\s+|could you\s+|would you\s+)?(?:please\s+)?(?:add|create|make|put|save)\s+(?:a\s+)?(?:new\s+)?(?:task|to-do|todo)(?:\s+(?:for|to|called|named|that says))?\s*:?\s+(.+)$/i);
-  if (found) return { type: 'addTask', text: found[1].trim() };
+  if (found) return { type: 'addTask', text: found[1].trim().replace(/^to\s+/i, '') };
   found = text.match(/^(?:please\s+)?(?:can you\s+|could you\s+|would you\s+)?(?:please\s+)?(?:add|put|save)\s+(.+?)\s+(?:to|on|in)\s+(?:my|the)\s+(?:tasks?|to-?do\s+list|task\s+list)[.?!]?$/i);
   if (found) return { type: 'addTask', text: found[1].trim() };
   found = text.match(/^(?:please\s+)?(?:can you\s+|could you\s+|would you\s+)?(?:remind\s+me\s+to)\s+(.+)$/i);
@@ -48,7 +62,7 @@ export function parseIntent(raw) {
   if (found) return { type: 'completeTask', reference: found[1].trim() };
   found = text.match(/^(?:please\s+)?(?:i\s+)?(?:need|have|got|want)\s+to\s+(.+)$/i);
   if (found && /^(?:study|revise|review|finish|complete|practice|work\s+on|submit|read|prepare|learn(?!\s+(?:how|about)))\b/i.test(found[1])) return { type: 'suggestTask', text: found[1].trim() };
-  if (/^(?:what(?:'s| is)\s+on\s+my\s+(?:plate|to-?do\s+list)|what\s+do\s+i\s+need\s+to\s+do|do\s+i\s+have\s+any\s+(?:pending|open)\s+tasks)\??$/i.test(text)) return { type: 'listTasks' };
+  if (/^(?:what(?:'s| is)\s+on\s+my\s+(?:plate|to-?do\s+list)|what\s+do\s+i\s+need\s+to\s+do|do\s+i\s+have\s+any\s+(?:pending|open)\s+tasks)\??$/i.test(text)) return { type: 'pendingTasks' };
   found = text.match(/^(?:please\s+)?(?:delete|remove|get\s+rid\s+of)\s+(?:the\s+)?(?:task|to-?do)\s+([0-9a-f]{8})\.?$/i);
   if (found) return { type: 'deleteTask', id: found[1] };
   found = text.match(/^(?:please\s+)?(?:delete|remove|get\s+rid\s+of)\s+(?:the\s+)?note\s+([0-9a-f]{8})\.?$/i);

@@ -1,6 +1,6 @@
 # Echo — Local-First Personal AI Agent
 
-**Version:** `0.2.0-rc.1` | **Phase 0:** baseline complete | **Phase 1:** acceptance pending | **Phase 2:** coding, ideation and decision journal under development.
+**Version:** `0.3.1-rc.1` | **Phase 0:** baseline complete | **Phases 1–2:** remaining acceptance checks | **Phase 3:** reliability candidate under live testing.
 
 Echo is a modular offline-first AI assistant running its local conversational model through Ollama. The public repository contains no populated personal profile. The owner is a human, and Echo is a software agent.
 
@@ -131,3 +131,16 @@ Optional device commands include `/device init`, `/device trust <filename.pem>`,
 Spoken task creation requires an explicit follow-up confirmation to prevent transcription errors from silently modifying saved data. You can use `/voice ask 5` for the request and then again for `confirm` or `cancel`.
 
 Phase 3 is in progress; automatic network sync, autonomous actions, cloud APIs and Android support are not delivered in this release.
+
+## Echo v0.3.1-rc.1 — Phase 3.1–3.5 reliability candidate
+
+Read [`docs/PHASE31_RELIABILITY.md`](docs/PHASE31_RELIABILITY.md) for exact features, acceptance tests, privacy boundaries and limitations. This release adds deterministic pending/completed task lookup, read-only task-status checks, precise 2/8/10/16 base conversion, syntax-only JavaScript checks, more bounded follow-up context, truthful tool reporting and a private daily development review.
+
+- `/task pending`, `/task completed`, `/task status <name>` query actual task records.
+- Natural task requests such as `Echo what are my pending tasks` are handled without an LLM call.
+- `273 in hex` produces `111` via verified BigInt arithmetic.
+- `/review today` combines saved task state, explicitly user-reported progress, and timestamped results from `npm run test:record` and `npm run evaluate`.
+- `/devlog done|blocker|next <text>` records manual development notes; it never claims that tasks or Git changes were independently verified.
+- `/code syntax <name.js>` validates syntax without executing source.
+
+No new third-party runtime dependencies or additional models are required. Private files are excluded from the update ZIP. Phases 1 and 3 retain their outstanding device and acceptance checks; release candidate is not a production certification.

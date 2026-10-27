@@ -15,6 +15,7 @@ import { Phase2Workspace } from './core/phase2-workspace.js';
 import { CodeSandbox } from './tools/sandbox.js';
 import { ActionJournal } from './core/action-journal.js';
 import { ManualSync } from './core/phase3-sync.js';
+import { DailyReview } from './core/daily-review.js';
 
 export function statusText() {
   return phases.map(({ id, name, status }) => `Phase ${id}: ${name} [${status}]`).join('\n');
@@ -33,10 +34,11 @@ export async function main() {
   const phase2Workspace = await new Phase2Workspace({ filePath: resolve(config.root, 'data/echo-phase2.json') }).init();
   const actionJournal = await new ActionJournal({ filePath: resolve(config.root, 'data/echo-actions.json') }).init();
   const manualSync = await new ManualSync({ directory: resolve(config.root, 'data/sync'), memory }).init();
+  const dailyReview = await new DailyReview({ filePath: resolve(config.root, 'data/echo-devlog.json'), reportPath: resolve(config.root, 'data/echo-test-report.json'), qualityPath: resolve(config.root, 'data/echo-quality.json'), timeZone: config.timeZone }).init();
   const codeSandbox = await new CodeSandbox({ workspaceDir: resolve(config.root, 'data/code-workspace'), enabled: process.env.ECHO_EXPERIMENTAL_CODE_EXECUTION === '1' }).init();
   const session = createPhase00({ provider, profile: profileState.profile, memory, maxTurns: config.maxTurns });
   session.contextProvider = () => phase2Workspace.promptContext();
-  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, timeZone: config.timeZone });
+  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, timeZone: config.timeZone });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

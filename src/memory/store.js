@@ -193,6 +193,21 @@ export class MemoryStore {
     return { ...task };
   }
 
+  taskByReference(reference) {
+    this.checkReady();
+    const candidate = String(reference).trim();
+    if (!candidate) return { status: 'missing', matches: [] };
+    const direct = this.data.tasks.filter(t => t.id === candidate);
+    if (direct.length) return { status: 'matched', task: { ...direct[0] } };
+    const query = normalizeTask(candidate);
+    if (!query || query.length > 300) return { status: 'missing', matches: [] };
+    const exact = this.data.tasks.filter(t => normalizeTask(t.text) === query);
+    const matches = exact.length ? exact : this.data.tasks.filter(t => query.length >= 5 && (normalizeTask(t.text).includes(query) || query.includes(normalizeTask(t.text))));
+    if (!matches.length) return { status: 'missing', matches: [] };
+    if (matches.length > 1) return { status: 'ambiguous', matches: matches.map(t => ({ id: t.id, text: t.text })) };
+    return { status: 'matched', task: { ...matches[0] } };
+  }
+
   async completeTaskByReference(reference) {
     this.checkReady();
     const candidate = String(reference).trim();

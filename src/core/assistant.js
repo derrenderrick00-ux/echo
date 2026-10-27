@@ -9,6 +9,8 @@ import { timeoutExplanation, voiceSetup, javascriptDateExplanation } from './dia
 import { Phase2Commands } from './phase2-commands.js';
 import { resourceSummary } from './resources.js';
 import { Phase3Commands } from './phase3-commands.js';
+import { programmingFact } from './programming-facts.js';
+import { parseBaseConversion } from './number-systems.js';
 
 export const HELP = [
   'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /resources /reset /continue /exit',
@@ -20,6 +22,7 @@ export const HELP = [
   'Games: /game trivia technology /game trivia general /game wordchain /game guess /game quit',
   'Phase 2: /phase2 help /code check /code files /code run <name.js> /code generate <requirement> /idea /decision /preference',
   'Phase 3: /phase3 help /actions /approve <id> /reject <id> /audit /device /sync',
+  'Reliability: /task pending /task completed /task status <name> /review today /devlog done|blocker|next <text> /devlog list /accuracy',
   'Voice: /voice check /voice test /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
   'Offline calendar alerts only run while this CLI remains open. No internet, messaging, or unattended remote actions are implemented.',
 ].join('\n');
@@ -40,7 +43,7 @@ function formatTaskResult(result, reference) {
 }
 
 export class AssistantController {
-  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null }) {
+  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null }) {
     this.session = session;
     this.memory = memory;
     this.calendar = calendar;
@@ -55,6 +58,9 @@ export class AssistantController {
     this.lastAnswer = '';
     this.lastMathPlain = null;
     this.lastOutput = '';
+    this.lastUserQuestion = '';
+    this.lastVerifiedConversion = null;
+    this.dailyReview = dailyReview;
     this.voiceReplies = false;
     this.voicePending = null;
     this.phase2 = phase2Workspace && codeSandbox ? new Phase2Commands({ workspace: phase2Workspace, sandbox: codeSandbox }) : null;
@@ -110,6 +116,7 @@ export class AssistantController {
     const line = String(input).trim();
     const lower = line.toLowerCase();
     if (!line) return { text: '' };
+    if (!/^\d{1,40}\?$/.test(line) && parseBaseConversion(line) === null) this.lastVerifiedConversion = null;
     const spokenQuery = line.match(/^(?:(?:please\s+)?(?:answer|respond|reply|say)(?:\s+to\s+me)?\s+(?:in|with)\s+voice)\s*[:,-]?\s+(.+)$/is);
     if (spokenQuery) {
       const check = await this.prepareSingleSpeech();
@@ -126,6 +133,7 @@ export class AssistantController {
       return { text: last || 'Specify the exact question or calculation to answer directly.' };
     }
     this.lastMathPlain = null;
+    if (/^\d{1,40}\?$/i.test(line) && this.lastVerifiedConversion) return { text: `Verified conversion, not a guess: ${this.lastVerifiedConversion}` };
     if (['/exit','/quit','exit','quit','/bye'].includes(lower)) return { exit: true };
     if (lower === '/game quit') return { text: this.games.respond('q') ?? 'No game is running.' };
     if (this.games.state && !lower.startsWith('/')) return { text: this.games.respond(line) };
@@ -164,6 +172,22 @@ export class AssistantController {
     }
     if (lower === '/task') return { text: 'Usage: /task list | /task add <text> | /task done <ID or description>' };
     if (lower === '/task list') return { text: formatTasks(this.memory.listTasks()) };
+    if (lower === '/task pending' || lower === '/task open') return { text: `Pending (incomplete) tasks:
+${formatTasks(this.memory.listTasks({ includeDone: false }))}` };
+    if (lower === '/task completed' || lower === '/task done-list') return { text: `Completed tasks:
+${formatTasks(this.memory.listTasks().filter(t => t.done))}` };
+    if (lower.startsWith('/task status ')) return this.taskStatus(line.slice(13).trim());
+    if (lower === '/review today' || lower === '/review' || lower === '/review daily') return { text: this.dailyReview ? await this.dailyReview.render({ memory: this.memory, actionJournal: this.phase3?.journal }) : 'Local development review is not configured.' };
+    if (lower === '/devlog' || lower === '/devlog help') return { text: 'Use /devlog done <completed work>, /devlog blocker <problem>, /devlog next <planned action>, /devlog list. Entries are explicitly user-reported, not independently verified.' };
+    if (lower === '/devlog list') return { text: this.dailyReview ? this.dailyReview.list().slice(-30).map(e => `[${e.id}] ${e.type}: ${e.text} (user reported)`).join('\n') || 'No development log entries.' : 'Development log is unavailable.' };
+    if (/^\/devlog (?:done|blocker|next)\s+/i.test(line)) {
+      if (!this.dailyReview) return { text: 'Development log is unavailable.' };
+      const found = line.match(/^\/devlog (done|blocker|next)\s+(.+)$/is);
+      const item = await this.dailyReview.add(found[1].toLowerCase(), found[2]);
+      return { text: `Recorded user-reported ${item.type} [${item.id}]. This is not independently verified.` };
+    }
+    if (lower === '/accuracy') return { text: 'Echo accuracy policy: saved records and arithmetic must use deterministic tools. Generated programming and factual responses remain unverified. Use npm run test:record and npm run evaluate in Ubuntu, then /review today. No measured score guarantees arbitrary LLM correctness.' };
+
     if (lower.startsWith('/task add ')) return this.addTask(line.slice(10));
     if (lower.startsWith('/task done ')) return this.finish(line.slice(11));
     if (lower === '/task add' || lower === '/task done') return { text: 'Usage: /task add <text> | /task done <ID or description>' };
@@ -246,6 +270,8 @@ export class AssistantController {
     }
     if (intent?.type === 'unsupportedExternal') return { text: 'Echo cannot send messages, emails, or calls in this release. Nothing was sent or scheduled.' };
     if (intent?.type === 'math') {
+      if (parseBaseConversion(line) !== null) this.lastVerifiedConversion = intent.result;
+      else this.lastVerifiedConversion = null;
       const match = intent.result.match(/^(\d+) \+ (\d+) = (\d+) \(decimal\)[\s\S]*?Verification: ([01]+)₂/);
       this.lastMathPlain = match ? `${match[1]} + ${match[2]} = ${match[3]}₁₀ = ${match[4]}₂.` : intent.result;
       return { text: intent.result };
@@ -259,12 +285,31 @@ export class AssistantController {
     if (intent?.type === 'capabilities') return { text: capabilitySummary() };
     if (intent?.type === 'datetime') return { text: this.dateTime() };
     if (intent?.type === 'listTasks') return { text: formatTasks(this.memory.listTasks()) };
+    if (intent?.type === 'pendingTasks') return { text: `Pending (incomplete) tasks:\n${this.memory.listTasks({ includeDone: false }).length ? formatTasks(this.memory.listTasks({ includeDone: false })) : 'No incomplete tasks.'}` };
+    if (intent?.type === 'completedTasks') return { text: `Completed tasks:\n${this.memory.listTasks().some(t => t.done) ? formatTasks(this.memory.listTasks().filter(t => t.done)) : 'No completed tasks.'}` };
+    if (intent?.type === 'nextTask') {
+      const pending = this.memory.listTasks({ includeDone: false });
+      return { text: pending.length ? `First outstanding saved task (not ranked by urgency): [${pending[0].id}] ${pending[0].text}. Tell me its priority if you want a recommendation based on importance.` : 'No incomplete tasks. I cannot infer unfinished work outside saved tasks.' };
+    }
+    if (intent?.type === 'taskStatus') return this.taskStatus(intent.reference);
+    if (intent?.type === 'taskDefinition') return { text: 'Correct. Pending tasks are saved tasks that have not been marked complete. I will use that definition for task queries. 🙂' };
+    if (intent?.type === 'dailyReview') return { text: this.dailyReview ? await this.dailyReview.render({ memory: this.memory, actionJournal: this.phase3?.journal }) : 'The development review is not configured.' };
+
     if (intent?.type === 'listNotes') return { text: formatNotes(this.memory.listNotes()) };
     if (intent?.type === 'listEvents') return { text: formatEvents(this.calendar.list(), this.timeZone) };
     if (intent?.type === 'help') return { text: HELP };
     if (intent?.type === 'memoryInfo') return { text: 'Notes and tasks are stored locally in data/echo-memory.json. Calendar entries are stored in data/echo-calendar.json. Search uses local embeddings with a keyword fallback. Ordinary chat does not train the model or automatically persist.' };
     if (intent?.type === 'routine') return { text: briefing({ profile: this.profileState.profile, memory: this.memory, calendar: this.calendar, now: this.clock(), timeZone: this.timeZone }) };
+    const fact = programmingFact(line, { previousAnswer: this.lastAnswer });
+    if (fact) return { text: fact };
     return this.chat(line, onToken);
+  }
+  taskStatus(reference) {
+    const result = this.memory.taskByReference(reference);
+    if (result.status === 'missing') return { text: `No saved task matches "${reference}". No completion was inferred.` };
+    if (result.status === 'ambiguous') return { text: `Several saved tasks match "${reference}":\n${result.matches.map(t => `[${t.id}] ${t.text}`).join('\n')}\nUse the ID to check a specific task.` };
+    const task = result.task;
+    return { text: `Task [${task.id}] ${task.text}: ${task.done ? 'completed' : 'pending (incomplete)'}.` };
   }
   async prepareSingleSpeech() {
     if (!this.voice) return { text: 'Voice provider is unavailable.', announcement: true };
@@ -292,7 +337,9 @@ export class AssistantController {
   }
   async finish(reference) { return { text: formatTaskResult(await this.memory.completeTaskByReference(reference), reference) }; }
   async chat(text, onToken) {
-    const answer = await this.session.reply(text, { onToken });
+    const followup = /\b(?:that|this|it|previous|last|in the (?:code|program)|you wrote|you just|same)\b/i.test(text);
+    const ref = followup && this.lastAnswer ? this.lastAnswer.slice(0, 1200) : null;
+    const answer = await this.session.reply(text, { onToken, reference: ref });
     this.lastAnswer = answer;
     return { text: answer, streamed: typeof onToken === 'function', truncated: this.session.provider.lastTruncated === true };
   }

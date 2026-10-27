@@ -1,9 +1,10 @@
+import { checkJavascriptSyntax } from './code-syntax.js';
 import { ideaScore, parseIdeaLine } from './phase2-workspace.js';
 
 const IDEA_USAGE = 'Ideas: /idea add Name | impact=1..5 | learning=1..5 | feasibility=1..5 | effort=1..5; /idea list; /idea rank; /idea brainstorm <problem>';
 const DECISION_USAGE = 'Decisions: /decision add Question | Choice | Reason; /decision list; /decision find <query>; /decision outcome <id> | Result';
 const PREF_USAGE = 'Preferences: /preference list; /preference set <response_style|study_method|accuracy_priority|current_focus> | <value>; /preference clear <key>';
-const CODE_USAGE = 'Code: /code check; /code files; /code run <name.js>; /code explain <name.js>; /code review <name.js>; /code generate <requirement>. Only files inside data/code-workspace are accessible.';
+const CODE_USAGE = 'Code: /code check; /code syntax <name.js>; /code files; /code run <name.js>; /code explain <name.js>; /code review <name.js>; /code generate <requirement>. Only files inside data/code-workspace are accessible.';
 
 function formatIdeas(values) {
   if (!values.length) return 'No saved ideas.';
@@ -82,6 +83,12 @@ export class Phase2Commands {
     if (lower === '/code files') {
       const files = await this.sandbox.listFiles();
       return { text: files.length ? files.map(item => `${item.name} (${item.size} bytes)`).join('\n') : 'No JS files in data/code-workspace. Create one there before using /code run.' };
+    }
+    if (lower.startsWith('/code syntax ')) {
+      const name = line.slice(13).trim();
+      const source = await this.sandbox.source(name);
+      const check = checkJavascriptSyntax(source.content);
+      return { text: `${name}: ${check.output}` };
     }
     if (lower.startsWith('/code run ')) {
       const name = line.slice(10).trim();

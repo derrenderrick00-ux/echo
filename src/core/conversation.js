@@ -9,14 +9,17 @@ export class ConversationSession {
     this.maxTurns = maxTurns;
     this.history = [];
     this.contextProvider = null;
+    this.learningJournal = null;
   }
 
   async reply(message, { onToken, reference = null } = {}) {
     const content = String(message).trim();
     if (!content) throw new Error('Message is empty.');
     const messages = [{ role: 'system', content: makeSystemPrompt(this.profile) }];
-    const personalization = this.contextProvider?.();
+    const personalization = this.contextProvider?.(content);
     if (personalization) messages.push({ role: 'system', content: personalization.slice(0, 1000) });
+    const learned = this.learningJournal?.context(content);
+    if (learned) messages.push({ role: 'system', content: learned });
     if (this.memory) {
       const { results } = await this.memory.searchNotes(content, { limit: 3, semantic: false });
       const wantsMemories = /(?:what|which|do you|can you).*\b(?:remember|saved|note|told you|asked you)\b|\bmy notes\b/i.test(content);

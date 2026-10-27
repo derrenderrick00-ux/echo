@@ -11,6 +11,11 @@ import { resourceSummary } from './resources.js';
 import { Phase3Commands } from './phase3-commands.js';
 import { programmingFact } from './programming-facts.js';
 import { parseBaseConversion } from './number-systems.js';
+import { FileCommands, FILE_HELP } from './file-commands.js';
+import { parseFileIntent } from './file-intent.js';
+import { verifiedFact } from './verified-facts.js';
+import { parseLearningIntent } from './learning-intent.js';
+import { parseSmartMemory } from './smart-memory.js';
 
 export const HELP = [
   'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /resources /reset /continue /exit',
@@ -22,6 +27,10 @@ export const HELP = [
   'Games: /game trivia technology /game trivia general /game wordchain /game guess /game quit',
   'Phase 2: /phase2 help /code check /code files /code run <name.js> /code generate <requirement> /idea /decision /preference',
   'Phase 3: /phase3 help /actions /approve <id> /reject <id> /audit /device /sync',
+  'Learning: /learn help /learn teach <topic> | <claim> /learn correct <topic> | <correction> /learn preference <key> | <value> /learn list /learn find <topic> /learn confirm <id> /learn reject <id> /learn forget <id>',
+  'Files: /file help /file create <name> | <content> /file paste <name> /file from-last <name> /file save <id> /file list /project scaffold unit-converter',
+  'Progress: /context summary|learning|projects|preferences|roadmap|interview; /context import preview|confirm; /interview setup|unlock|start|answer|preview|confirm|cancel|lock',
+  'Smart memory: add to memory: task | <text>; note | <text>; project | <name> | <status> | <detail>; correction | <topic> | <claim>; event | <ISO datetime> | <title>',
   'Reliability: /task pending /task completed /task status <name> /review today /devlog done|blocker|next <text> /devlog list /accuracy',
   'Voice: /voice check /voice test /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
   'Offline calendar alerts only run while this CLI remains open. No internet, messaging, or unattended remote actions are implemented.',
@@ -43,7 +52,7 @@ function formatTaskResult(result, reference) {
 }
 
 export class AssistantController {
-  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null }) {
+  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null, fileWorkspace = null, learningJournal = null, privateContext = null, progressInterview = null }) {
     this.session = session;
     this.memory = memory;
     this.calendar = calendar;
@@ -61,6 +70,11 @@ export class AssistantController {
     this.lastUserQuestion = '';
     this.lastVerifiedConversion = null;
     this.dailyReview = dailyReview;
+    this.learningJournal = learningJournal;
+    this.privateContext = privateContext;
+    this.progressInterview = progressInterview;
+    this.lastLearningDraft = null;
+    this.fileCommands = fileWorkspace ? new FileCommands({ files: fileWorkspace }) : null;
     this.voiceReplies = false;
     this.voicePending = null;
     this.phase2 = phase2Workspace && codeSandbox ? new Phase2Commands({ workspace: phase2Workspace, sandbox: codeSandbox }) : null;
@@ -92,7 +106,7 @@ export class AssistantController {
       const pending = this.voicePending;
       this.voicePending = null;
       if (Date.now() - pending.at > 60_000) return { text: 'Spoken approval expired. Repeat your request.', heard: transcript, announcement: true };
-      const result = pending.type === 'remember' ? await this.remember(pending.text) : await this.addTask(pending.text);
+      const result = pending.type === 'smart' ? await this.handleSmartMemory(pending.route) : pending.type === 'remember' ? await this.remember(pending.text) : await this.addTask(pending.text);
       return { ...result, heard: transcript, speak, announcement: true };
     }
     if (this.voicePending && /^(?:cancel|no\s+cancel|no\s+don't)$/i.test(transcript)) {
@@ -100,6 +114,11 @@ export class AssistantController {
       return { text: 'Cancelled. Nothing was saved.', heard: transcript, speak, announcement: true };
     }
     this.voicePending = null;
+    const smart = parseSmartMemory(transcript);
+    if (smart && smart.type !== 'clarify') {
+      this.voicePending = { type: 'smart', route: smart, at: Date.now() };
+      return { text: `I heard: ${transcript}\nThis memory request would change ${smart.type === 'task' || smart.type === 'complete' ? 'tasks' : smart.type === 'event' ? 'the local calendar' : smart.type === 'project' ? 'project context' : smart.type === 'learning' ? 'approved learning proposals' : 'notes'}. Nothing was saved yet. Say confirm or cancel in the next /voice ask 5 or /voice chat 5 exchange. Type it to confirm instead if preferred.`, heard: transcript, announcement: true, speak };
+    }
     const change = parseIntent(transcript);
     if (transcript.startsWith('/')) return { text: `I heard: ${transcript}\nSlash commands cannot run from speech. Type it to confirm.`, heard: transcript, announcement: true };
     if (['remember', 'addTask', 'suggestTask'].includes(change?.type)) {
@@ -137,9 +156,21 @@ export class AssistantController {
     if (['/exit','/quit','exit','quit','/bye'].includes(lower)) return { exit: true };
     if (lower === '/game quit') return { text: this.games.respond('q') ?? 'No game is running.' };
     if (this.games.state && !lower.startsWith('/')) return { text: this.games.respond(line) };
+    if (this.progressInterview) {
+      const response = this.progressInterview.handleCommand(line);
+      if (response?.pendingInterviewCommit) return { text: await this.progressInterview.confirm() };
+      if (response) return response;
+    }
+    if (this.privateContext && lower.startsWith('/context')) return this.handlePrivateContext(line);
+    const memoryRoute = parseSmartMemory(line);
+    if (memoryRoute) return this.handleSmartMemory(memoryRoute);
     if (lower.startsWith('/game ')) {
       const request = lower.slice(6).trim().split(/\s+/);
       return { text: this.games.start(request[0], request[1] || 'technology') };
+    }
+    if (this.learningJournal) {
+      const learning = await this.handleLearning(line);
+      if (learning) return learning;
     }
     if (['/help','/menu','/commands'].includes(lower)) return { text: HELP };
     if (lower === '/status') return { text: this.statusText() };
@@ -177,7 +208,7 @@ ${formatTasks(this.memory.listTasks({ includeDone: false }))}` };
     if (lower === '/task completed' || lower === '/task done-list') return { text: `Completed tasks:
 ${formatTasks(this.memory.listTasks().filter(t => t.done))}` };
     if (lower.startsWith('/task status ')) return this.taskStatus(line.slice(13).trim());
-    if (lower === '/review today' || lower === '/review' || lower === '/review daily') return { text: this.dailyReview ? await this.dailyReview.render({ memory: this.memory, actionJournal: this.phase3?.journal }) : 'Local development review is not configured.' };
+    if (lower === '/review today' || lower === '/review' || lower === '/review daily') return { text: this.dailyReview ? await this.dailyReview.render({ memory: this.memory, actionJournal: this.phase3?.journal, privateContext: this.privateContext }) : 'Local development review is not configured.' };
     if (lower === '/devlog' || lower === '/devlog help') return { text: 'Use /devlog done <completed work>, /devlog blocker <problem>, /devlog next <planned action>, /devlog list. Entries are explicitly user-reported, not independently verified.' };
     if (lower === '/devlog list') return { text: this.dailyReview ? this.dailyReview.list().slice(-30).map(e => `[${e.id}] ${e.type}: ${e.text} (user reported)`).join('\n') || 'No development log entries.' : 'Development log is unavailable.' };
     if (/^\/devlog (?:done|blocker|next)\s+/i.test(line)) {
@@ -240,6 +271,12 @@ ${formatTasks(this.memory.listTasks().filter(t => t.done))}` };
       await this.voice.speak(utterance);
       return { text: 'Finished local speech playback.', announcement: true };
     }
+    if (this.fileCommands && (lower === '/file pending-tasks' || lower === '/file tasks')) return this.createPendingTasksDraft('pending_tasks.md');
+    if (this.fileCommands && (lower.startsWith('/file') || lower.startsWith('/project'))) {
+      const fileAction = await this.fileCommands.handle(line, { lastAnswer: this.lastAnswer });
+      if (fileAction?.generateFile) return this.generateFile(fileAction.generateFile);
+      return fileAction;
+    }
     if (this.phase3) {
       const action = await this.phase3.handle(line);
       if (action) return action;
@@ -250,6 +287,20 @@ ${formatTasks(this.memory.listTasks().filter(t => t.done))}` };
       if (action) return action;
     }
     if (line.startsWith('/')) return { text: 'Unknown command. Use /help for the actual supported commands.' };
+    const fileIntent = parseFileIntent(line);
+    if (fileIntent) {
+      if (!this.fileCommands) return { text: 'Private file workspace is unavailable.' };
+      if (fileIntent.type === 'fileHelp') return { text: FILE_HELP };
+      if (fileIntent.type === 'pendingTasksFile') return this.createPendingTasksDraft(fileIntent.name);
+      if (fileIntent.type === 'scaffoldConverter') return this.fileCommands.handle('/project scaffold unit-converter');
+      if (fileIntent.type === 'saveLastCode') return this.fileCommands.fromLast(fileIntent.name, this.lastAnswer);
+      if (fileIntent.type === 'generateFile') return this.generateFile(fileIntent);
+      if (fileIntent.type === 'createFile') {
+        const draft = await this.fileCommands.files.stage([{ name: fileIntent.name, content: fileIntent.content }]);
+        return { text: this.fileCommands.describe(draft) };
+      }
+    }
+    if (/^(?:(?:hey|hi|hello)[ ,]+)?echo[ ,:!]+/i.test(line) ? /\b(?:create|write|make|save|generate)\b[\s\S]*\b(?:files?|file|project files)\b/i.test(line) : /^(?:please\s+)?(?:can you\s+|could you\s+|would you\s+)?(?:create|write|make|save|generate)\b[\s\S]*\b(?:files?|file|project files)\b/i.test(line)) return { text: 'No file was created. That file request is not supported by the current structured file router. Use /file help or /file create <name> | <content> and approve the draft with /file save <id>.' };
     const intent = parseIntent(line);
     if (intent?.type === 'remember') return this.remember(intent.text);
     if (intent?.type === 'clarifyMemory') return { text: 'Tell me exactly what to save: /remember <text>' };
@@ -293,16 +344,138 @@ ${formatTasks(this.memory.listTasks().filter(t => t.done))}` };
     }
     if (intent?.type === 'taskStatus') return this.taskStatus(intent.reference);
     if (intent?.type === 'taskDefinition') return { text: 'Correct. Pending tasks are saved tasks that have not been marked complete. I will use that definition for task queries. 🙂' };
-    if (intent?.type === 'dailyReview') return { text: this.dailyReview ? await this.dailyReview.render({ memory: this.memory, actionJournal: this.phase3?.journal }) : 'The development review is not configured.' };
+    if (intent?.type === 'dailyReview') return { text: this.dailyReview ? await this.dailyReview.render({ memory: this.memory, actionJournal: this.phase3?.journal, privateContext: this.privateContext }) : 'The development review is not configured.' };
 
     if (intent?.type === 'listNotes') return { text: formatNotes(this.memory.listNotes()) };
     if (intent?.type === 'listEvents') return { text: formatEvents(this.calendar.list(), this.timeZone) };
     if (intent?.type === 'help') return { text: HELP };
     if (intent?.type === 'memoryInfo') return { text: 'Notes and tasks are stored locally in data/echo-memory.json. Calendar entries are stored in data/echo-calendar.json. Search uses local embeddings with a keyword fallback. Ordinary chat does not train the model or automatically persist.' };
     if (intent?.type === 'routine') return { text: briefing({ profile: this.profileState.profile, memory: this.memory, calendar: this.calendar, now: this.clock(), timeZone: this.timeZone }) };
+    const knownPersonal = this.privateContext?.answerKnown(line);
+    if (knownPersonal) return { text: knownPersonal };
+    const groundedFact = verifiedFact(line);
+    if (groundedFact) return { text: groundedFact };
     const fact = programmingFact(line, { previousAnswer: this.lastAnswer });
     if (fact) return { text: fact };
     return this.chat(line, onToken);
+  }
+  async handlePrivateContext(line) {
+    const lower = line.toLowerCase().trim();
+    if (lower === '/context' || lower === '/context summary') return { text: this.privateContext.format('overview') };
+    if (lower === '/context import preview') return { text: await this.privateContext.previewImport() };
+    if (lower === '/context import confirm') return { text: await this.privateContext.confirmImport() };
+    if (lower.startsWith('/context change confirm ')) return { text: await this.privateContext.confirmProject(line.slice('/context change confirm '.length).trim()) };
+    if (/^\/context (learning|projects|preferences|roadmap|interview)$/.test(lower)) return { text: this.privateContext.format(lower.split(' ')[1]) };
+    return { text: 'Commands: /context summary | learning | projects | preferences | roadmap | interview | import preview | import confirm | change confirm <id>.' };
+  }
+  async handleSmartMemory(route) {
+    if (route.type === 'clarify') return { text: 'No memory was changed. Specify a category: add to memory: task | <text>, note | <text>, project | <name> | <status> | <detail>, correction | <topic> | <claim>, or event | <ISO datetime> | <title>.' };
+    if (route.type === 'note') return this.remember(route.content);
+    if (route.type === 'task') return this.addTask(route.content);
+    if (route.type === 'complete') return this.finish(route.content);
+    if (route.type === 'event') {
+      const event = await this.calendar.add(route.at, route.content);
+      return { text: `Saved local calendar event [${event.id}] at ${event.at}: ${event.title}. This is not a phone notification or synchronized calendar.` };
+    }
+    if (route.type === 'learning') {
+      if (!this.learningJournal) return { text: 'Learning journal unavailable; nothing saved.' };
+      const proposal = this.learningJournal.propose(route.category === 'fact' ? 'fact' : route.category, route.name, route.content);
+      this.lastLearningDraft = proposal.id;
+      return { text: this.describeLearningDraft(proposal) };
+    }
+    if (route.type === 'project') {
+      return { text: this.privateContext ? this.privateContext.proposeProject(route.name, route.status, route.content) : 'Private context is unavailable. No project update saved.' };
+    }
+    return { text: 'Unrecognized memory type; no change was made.' };
+  }
+  describeLearningDraft(proposal) {
+    const provenance = proposal.type === 'preference' ? 'User preference (not a system permission)' : 'User-provided claim (NOT independently verified)';
+    return `Learning proposal [${proposal.id}] — NOT SAVED yet.\nType: ${proposal.type}; topic: ${proposal.topic}\n${provenance}: ${proposal.content}\nUse /learn confirm ${proposal.id} to save or /learn reject ${proposal.id}.`;
+  }
+  async handleLearning(line) {
+    if (!this.learningJournal) return null;
+    const lower = line.toLowerCase();
+    if (lower === '/learn' || lower === '/learn help' || /^(?:can (?:you|echo) learn|(?:do|can) you learn from (?:my )?corrections|learn from (?:your )?mistakes)\??$/i.test(line)) {
+      return { text: 'Echo can learn approved preferences and user-supplied corrections in a private local journal; it does not retrain Ollama. Facts are NOT independently verified. Use /learn teach <topic> | <claim>, /learn correct <topic> | <correction>, /learn preference <response_style|study_method|accuracy_priority|current_focus> | <text>, /learn pending, /learn confirm <id>, /learn reject <id>, /learn list, /learn find <topic>, /learn forget <id>.' };
+    }
+    if (lower === '/learn pending') {
+      const drafts = this.learningJournal.proposals();
+      return { text: drafts.length ? drafts.map(d => this.describeLearningDraft(d)).join('\n\n') : 'No pending learning proposals.' };
+    }
+    if (lower === '/learn list') {
+      const entries = this.learningJournal.list();
+      return { text: entries.length ? entries.map(e => `[${e.id}] ${e.type}: ${e.topic} — ${e.content} [user-approved; NOT independently verified]`).join('\n') : 'No approved learning records.' };
+    }
+    if (lower.startsWith('/learn find ')) return this.recallLearning(line.slice(12));
+    if (lower.startsWith('/learn confirm ')) {
+      const id = line.slice(15).trim();
+      const record = await this.learningJournal.confirm(id);
+      if (this.lastLearningDraft === id) this.lastLearningDraft = null;
+      return { text: `Saved private learning record [${record.id}] (${record.type}: ${record.topic}). ${record.type === 'preference' ? 'Will influence future prompts when relevant; no permissions changed.' : 'This is user-supplied information, NOT independently fact-checked.'} No model training occurred.` };
+    }
+    if (lower.startsWith('/learn reject ')) {
+      const id = line.slice(14).trim();
+      this.learningJournal.reject(id);
+      if (this.lastLearningDraft === id) this.lastLearningDraft = null;
+      return { text: `Rejected learning proposal [${id}]. Nothing saved.` };
+    }
+    if (lower.startsWith('/learn forget ')) {
+      const id = line.slice(14).trim();
+      return { text: await this.learningJournal.remove(id) ? `Deactivated learning record [${id}]. Future prompts no longer use it.` : `Active learning record [${id}] not found.` };
+    }
+    const explicit = line.match(/^\/learn (teach|correct|preference)\s+([^|]+?)\s*\|\s*(.+)$/is);
+    if (explicit) {
+      const category = explicit[1].toLowerCase() === 'teach' ? 'fact' : explicit[1].toLowerCase() === 'correct' ? 'correction' : 'preference';
+      const draft = this.learningJournal.propose(category, explicit[2].trim(), explicit[3].trim());
+      this.lastLearningDraft = draft.id;
+      return { text: this.describeLearningDraft(draft) };
+    }
+    if (/^\/learn(?:\s|$)/i.test(line)) return { text: 'Usage: /learn help. Teaching uses: /learn teach <topic> | <claim>. No information was saved.' };
+    if (this.lastLearningDraft && /^(?:confirm|yes[, ]+save it|save (?:it|this))\.?$/i.test(line)) return this.handleLearning(`/learn confirm ${this.lastLearningDraft}`);
+    if (this.lastLearningDraft && /^(?:cancel|no[, ]+cancel|discard (?:it|this))\.?$/i.test(line)) return this.handleLearning(`/learn reject ${this.lastLearningDraft}`);
+    const intent = parseLearningIntent(line);
+    if (!intent) return null;
+    if (intent.type === 'learnClarify') return { text: 'I may have made an error. Tell me the exact correction with /learn correct <topic> | <correct information>. I will not silently treat your correction as verified fact.' };
+    if (intent.type === 'learnList') return this.handleLearning('/learn list');
+    if (intent.type === 'learnFind') return this.recallLearning(intent.topic);
+    if (intent.type === 'learnPropose') {
+      const draft = this.learningJournal.propose(intent.category, intent.topic, intent.content);
+      this.lastLearningDraft = draft.id;
+      return { text: this.describeLearningDraft(draft) };
+    }
+    return null;
+  }
+  recallLearning(topic) {
+    const items = this.learningJournal.find(topic);
+    return { text: items.length ? items.map(e => `[${e.id}] ${e.topic}: ${e.content}\nSource: explicitly approved user teaching; NOT independently verified.`).join('\n\n') : `No confirmed learning about "${topic}". Ask /learn help to teach Echo explicitly.` };
+  }
+  async createPendingTasksDraft(name) {
+    if (!this.fileCommands) return { text: 'Private file workspace is unavailable.' };
+    const tasks = this.memory.listTasks({ includeDone: false });
+    const contents = [
+      '# Pending Tasks',
+      '',
+      'Source: Echo local task records. Only incomplete tasks are listed.',
+      '',
+      ...(tasks.length ? tasks.map(task => `- [ ] ${task.text.replace(/[\r\n]+/g, ' ').replace(/[<>]/g, '')} (ID: ${task.id})`) : ['No pending tasks recorded.']),
+      '',
+    ].join('\n');
+    const draft = await this.fileCommands.files.stage([{ name, content: contents }]);
+    return { text: `Drafted Markdown from ${tasks.length} actual pending task(s), not placeholder examples.\n${this.fileCommands.describe(draft)}` };
+  }
+  async generateFile({ name, requirement }) {
+    if (!this.fileCommands) return { text: 'File workspace unavailable.' };
+    if (!requirement || requirement.length > 500) return { text: 'Provide a specific requirement of at most 500 characters.' };
+    const { cleanFilename, extractCodeBlock } = await import('./file-workspace.js');
+    cleanFilename(name);
+    await this.fileCommands.files.ensureAbsent(name);
+    const ext = name.split('.').at(-1);
+    const instruction = `Generate ONLY the contents for a single ${ext} file named ${name}. Requirement: ${requirement}. Return EXACTLY one fenced code block with the entire file; no prose, no comments, no partial sections. This is UNVERIFIED generated code; do not claim it was tested, written to disk, or executed.`;
+    const answer = await this.session.reply(instruction);
+    const selected = extractCodeBlock(answer);
+    if (selected.count !== 1) return { text: `The local model returned ${selected.count} code blocks. No file was drafted. Ask for one smaller file, or use /file from-last <filename> <block number> to inspect the generated sections.` };
+    const draft = await this.fileCommands.files.stage([{ name, content: selected.code }]);
+    return { text: `Generated draft from the local LLM (not verified for correctness).\n${this.fileCommands.describe(draft)}\nReview with /file preview ${draft.id} before saving.` };
   }
   taskStatus(reference) {
     const result = this.memory.taskByReference(reference);

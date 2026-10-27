@@ -1,8 +1,17 @@
 # Echo — Local-First Personal AI Agent
 
-**Version:** `0.3.1-rc.1` | **Phase 0:** baseline complete | **Phases 1–2:** remaining acceptance checks | **Phase 3:** reliability candidate under live testing.
+**Version:** `0.3.4-rc.1` | **Phase 0:** baseline complete | **Phases 1–2:** remaining acceptance checks | **Phase 3:** reliability candidate under live testing.
 
 Echo is a modular offline-first AI assistant running its local conversational model through Ollama. The public repository contains no populated personal profile. The owner is a human, and Echo is a software agent.
+
+## v0.3.3: approved learning and verifiable file writes
+
+Install `Echo_v0.3.3-rc1_learning_and_files_update.zip` directly over your v0.3.1 checkout. The package **includes** the v0.3.2 file-writer patch; you do not need the earlier ZIP. It does not touch `.env`, `config/profile.json`, the private `data/` directory, `.git`, or the master document.
+
+Learning: `/learn help`, `/learn teach <topic> | <claim>`, `/learn correct <topic> | <correction>`, `/learn preference <key> | <value>`, `/learn confirm <id>`, `/learn list`, `/learn find <topic>`. All proposed learning requires approval; user claims are not independently verified, and the model is **not retrained**. Learning state is stored privately in `data/echo-learning.json`.
+
+File creation: `Create a file called notes.md containing Hello`, `/file pending-tasks`, `/file generate hello.js | Print Hello World`, `/file preview <id>`, `/file save <id>`, `/file list`. Actual writes occur only inside private `data/code-workspace`, after explicit confirmation. Echo must not claim it created a file when it merely generated text. See `docs/LEARNING_AND_FILES.md` and `docs/FILE_CREATION.md`.
+
 
 
 ## Phase 2 coding, ideation and decision journal — v0.2.0-rc.1
@@ -144,3 +153,29 @@ Read [`docs/PHASE31_RELIABILITY.md`](docs/PHASE31_RELIABILITY.md) for exact feat
 - `/code syntax <name.js>` validates syntax without executing source.
 
 No new third-party runtime dependencies or additional models are required. Private files are excluded from the update ZIP. Phases 1 and 3 retain their outstanding device and acceptance checks; release candidate is not a production certification.
+
+## v0.3.2-rc.1 — Private file creation and validation
+
+Echo can now CREATE real files within the Git-ignored `data/code-workspace/` after explicit approval, using commands or safe natural requests. A draft is held in memory for up to 15 minutes; drafting does not write to disk. File creation refuses overwrites, dotfiles, traversal, symlink redirects, invalid JavaScript syntax and invalid JSON. It does not execute source or give generated code an accuracy guarantee.
+
+- `/file help` shows commands; `/file list` and `/file read <name>` inspect files.
+- `/file create hello.txt | Hello Echo` creates a draft; `/file save <draft-id>` writes it.
+- `/file paste app.js` enters multi-line paste mode. Finish with `:end` or abort with `:cancel` on separate lines.
+- `/file generate demo.js | Print the numbers 1 through 5` asks Ollama for **one** fenced code block and stages valid syntax; Ollama output can still be logically wrong.
+- After `/code generate ...` use `/file from-last demo.js` to capture a fenced code block from Echo's last generated answer. Select a specific block index if there are several.
+- `/project scaffold unit-converter` stages four browser files under `data/code-workspace/unit-converter/`. Then review and approve once. This is a deterministic template, not arbitrary LLM-generated code.
+- The short default-answer rule and verified physics/Windows facts correct narrow regressions from the uploaded testing transcript. They do not make the 3B model generally fact-checked.
+
+See `docs/FILE_CREATION.md`. Voice and microphone implementations were not modified in this release.
+
+## v0.3.4-rc.1 — private context and guided progress review
+
+This candidate adds a **separately downloaded**, user-reviewed context seed containing learning progress, project status, preferences and engineering backlog. The private seed must be placed under ignored `data/echo-context-seed.json`; it is not included in the public ZIP or repo. Use `/context import preview` followed by `/context import confirm`. View with `/context learning`, `/context projects`, `/context preferences`, `/context roadmap`.
+
+Set up your own private interview combination using `/interview setup` in an interactive Ubuntu terminal. The combination is masked and stored as a salted scrypt hash, not plaintext. Later run `/interview unlock`, `/interview start`, answer the nine questions, `/interview preview`, then `/interview confirm`. Unconfirmed answers are not saved. This is a local session-level gate, not a replacement for operating-system authentication.
+
+Explicit `add to memory` requests route to notes, tasks, completed tasks, learning proposals, confirmed project updates, or local calendar events according to content. Examples: `add to memory: task | Review networking` and `add to memory: project | Echo | active | Reviewing release`. A project proposal requires `/context change confirm <id>`; learned preferences and corrections require `/learn confirm <id>`. Unsupported external actions remain unavailable.
+
+The previously failing natural phrase `create an md file on my pending tasks` now stages a real Markdown draft from incomplete saved tasks. Approve it using `/file save <id>`. Files remain confined to `data/code-workspace` and cannot overwrite an existing file.
+
+Detailed manuals: `docs/USER_MANUAL.md`, `docs/DEVELOPER_MANUAL.md`, `docs/MODEL_LEARNING_MANUAL.md`, `docs/FINAL_DEVELOPMENT_REPORT.md`, and `docs/FINAL_ACCEPTANCE_CHECKLIST.md`. Current candidate automated tests include 176 passing Linux/Node.js-22 tests; real Ubuntu/Node.js-24 release acceptance is required. Persistent approved memory is **not** model fine-tuning.

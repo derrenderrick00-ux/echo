@@ -67,7 +67,7 @@ export class DailyReview {
       return data;
     } catch (error) { if (error.code === 'ENOENT') return null; throw new Error('Recorded intent evaluation is malformed.'); }
   }
-  async render({ memory, actionJournal = null } = {}) {
+  async render({ memory, actionJournal = null, privateContext = null } = {}) {
     const today = dayOf(this.clock(), this.timeZone);
     const tasks = memory.listTasks();
     const doneToday = tasks.filter(t => t.done && t.completedAt && dayOf(new Date(t.completedAt), this.timeZone) === today);
@@ -93,6 +93,8 @@ export class DailyReview {
       ...(byType('next').length ? byType('next').map(x => `- ${x.text}`) : ['None recorded.']),
       report ? `Last automated test run: ${report.at}; ${report.passed}/${report.total} passed, ${report.failed} failed; exit status ${report.ok ? 'success' : 'failure'}.` : 'No locally recorded automated test run. Execute npm run test:record in Ubuntu.',
       quality ? `Last curated intent-routing evaluation: ${quality.at}; ${quality.passed}/${quality.total} correct (${(100 * quality.passed / quality.total).toFixed(1)}%). This is not a general model-accuracy score.` : 'No local routing evaluation recorded. Execute npm run evaluate in Ubuntu.',
+      ...(privateContext?.data?.interviews?.length ? [`Last confirmed private progress interview: ${privateContext.data.interviews.at(-1).at} (owner self-report, not independent verification). Use /context interview.`] : []),
+      ...(privateContext?.data?.projects?.length ? [`Private project inventory: ${privateContext.data.projects.length} user-reported statuses; use /context projects to review and update.`] : []),
       'Only saved records and explicitly reported accomplishments are shown; no GitHub, external calendar or autonomous project progress was inferred.',
     ].join('\n');
   }

@@ -16,6 +16,10 @@ import { CodeSandbox } from './tools/sandbox.js';
 import { ActionJournal } from './core/action-journal.js';
 import { ManualSync } from './core/phase3-sync.js';
 import { DailyReview } from './core/daily-review.js';
+import { FileWorkspace } from './core/file-workspace.js';
+import { LearningJournal } from './core/learning-journal.js';
+import { PrivateContext } from './core/private-context.js';
+import { ProgressInterview } from './core/progress-interview.js';
 
 export function statusText() {
   return phases.map(({ id, name, status }) => `Phase ${id}: ${name} [${status}]`).join('\n');
@@ -36,9 +40,14 @@ export async function main() {
   const manualSync = await new ManualSync({ directory: resolve(config.root, 'data/sync'), memory }).init();
   const dailyReview = await new DailyReview({ filePath: resolve(config.root, 'data/echo-devlog.json'), reportPath: resolve(config.root, 'data/echo-test-report.json'), qualityPath: resolve(config.root, 'data/echo-quality.json'), timeZone: config.timeZone }).init();
   const codeSandbox = await new CodeSandbox({ workspaceDir: resolve(config.root, 'data/code-workspace'), enabled: process.env.ECHO_EXPERIMENTAL_CODE_EXECUTION === '1' }).init();
+  const fileWorkspace = await new FileWorkspace({ root: resolve(config.root, 'data/code-workspace') }).init();
+  const learningJournal = await new LearningJournal({ filePath: resolve(config.root, 'data/echo-learning.json') }).init();
+  const privateContext = await new PrivateContext({ filePath: resolve(config.root, 'data/echo-context.json'), seedPath: resolve(config.root, 'data/echo-context-seed.json') }).init();
+  const progressInterview = await new ProgressInterview({ secretPath: resolve(config.root, 'data/echo-interview-key.json'), context: privateContext }).init();
   const session = createPhase00({ provider, profile: profileState.profile, memory, maxTurns: config.maxTurns });
-  session.contextProvider = () => phase2Workspace.promptContext();
-  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, timeZone: config.timeZone });
+  session.learningJournal = learningJournal;
+  session.contextProvider = query => [phase2Workspace.promptContext(), privateContext.relevant(query)].filter(Boolean).join('\n');
+  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, fileWorkspace, learningJournal, privateContext, progressInterview, timeZone: config.timeZone });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

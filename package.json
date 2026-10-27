@@ -1,8 +1,8 @@
 {
   "name": "echo-personal-agent",
-  "version": "0.3.1-rc.1",
+  "version": "0.3.4-rc.1",
   "private": true,
-  "description": "Echo Phase 3.1\u20133.5 candidate: natural task routing, verified base conversions, contextual coding, local daily review and quality evaluation",
+  "description": "Echo private learning profile, guided progress interview and smart memory routing",
   "type": "module",
   "engines": {
     "node": ">=24 <25"

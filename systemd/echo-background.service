@@ -1,0 +1,12 @@
+[Unit]
+Description=Echo approved local background reports
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env node __ECHO_ROOT__/scripts/background-tick.js
+WorkingDirectory=__ECHO_ROOT__
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+MemoryMax=256M
+TasksMax=32

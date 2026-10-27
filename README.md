@@ -179,3 +179,13 @@ Explicit `add to memory` requests route to notes, tasks, completed tasks, learni
 The previously failing natural phrase `create an md file on my pending tasks` now stages a real Markdown draft from incomplete saved tasks. Approve it using `/file save <id>`. Files remain confined to `data/code-workspace` and cannot overwrite an existing file.
 
 Detailed manuals: `docs/USER_MANUAL.md`, `docs/DEVELOPER_MANUAL.md`, `docs/MODEL_LEARNING_MANUAL.md`, `docs/FINAL_DEVELOPMENT_REPORT.md`, and `docs/FINAL_ACCEPTANCE_CHECKLIST.md`. Current candidate automated tests include 176 passing Linux/Node.js-22 tests; real Ubuntu/Node.js-24 release acceptance is required. Persistent approved memory is **not** model fine-tuning.
+
+## v0.4.0-rc.1 — Permissioned background worker, LoRA training and acceptance
+
+This candidate adds a *real* systemd-timer-driven local report worker that can run while the chat CLI is closed, provided you explicitly schedule a job and enable its user timer. The only permitted jobs write private summaries of tasks, the next 24 hours of local calendar, development reviews and resource usage. It does **not** run arbitrary code, browse, send messages or invoke Ollama autonomously. Commands: `/background help`, `/background schedule tasks 18:00`, `/background confirm <id>`, `/background status`, `/background audit`. Install the optional timer with `bash scripts/install-background-timer.sh` after testing. Read `docs/BACKGROUND_AUTONOMY.md`.
+
+A training data journal adds `/train add <prompt> | <ideal answer>`, `/train confirm <id>` and `/train list`. Export reviewed private examples with `npm run finetune:prepare`. The optional `training/train_lora.py` is an actual PEFT LoRA/QLoRA GPU fine-tuning script, **not run or GPU-tested on this 8 GB CPU laptop**. It does not automatically deploy adapters to Echo. Read `docs/FINE_TUNING_PIPELINE.md`.
+
+Run `npm run security:check`, `npm run performance:check`, `npm test`, `npm run evaluate` and `npm audit --omit=dev` on Ubuntu. Automated acceptance is partial and does not constitute a complete security certification. Read `docs/SECURITY_PERFORMANCE_ACCEPTANCE.md`.
+
+For a small on-device Ollama response-time/factual smoke benchmark, run `npm run acceptance:ollama` (no cloud endpoint); see `docs/SECURITY_PERFORMANCE_ACCEPTANCE.md`. `npm run acceptance:preflight` runs offline tests and static checks without making inference requests.

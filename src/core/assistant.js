@@ -16,6 +16,8 @@ import { parseFileIntent } from './file-intent.js';
 import { verifiedFact } from './verified-facts.js';
 import { parseLearningIntent } from './learning-intent.js';
 import { parseSmartMemory } from './smart-memory.js';
+import { backgroundCommand } from './background-agent.js';
+import { trainingCommand } from './training-journal.js';
 
 export const HELP = [
   'Commands: /help /menu /status /model /profile /identity /abilities /date /diagnostics /resources /reset /continue /exit',
@@ -31,9 +33,10 @@ export const HELP = [
   'Files: /file help /file create <name> | <content> /file paste <name> /file from-last <name> /file save <id> /file list /project scaffold unit-converter',
   'Progress: /context summary|learning|projects|preferences|roadmap|interview; /context import preview|confirm; /interview setup|unlock|start|answer|preview|confirm|cancel|lock',
   'Smart memory: add to memory: task | <text>; note | <text>; project | <name> | <status> | <detail>; correction | <topic> | <claim>; event | <ISO datetime> | <title>',
+  'Autonomy: /background help|status|schedule|confirm|pause|resume|delete|audit; /train help|add|confirm|reject|list|delete',
   'Reliability: /task pending /task completed /task status <name> /review today /devlog done|blocker|next <text> /devlog list /accuracy',
   'Voice: /voice check /voice test /voice on /voice off /voice reply /voice speak <text> /voice listen [seconds] /voice ask [seconds] /voice chat [seconds] /voice transcribe <file.wav>',
-  'Offline calendar alerts only run while this CLI remains open. No internet, messaging, or unattended remote actions are implemented.',
+  'Optional systemd background worker can generate approved local reports with CLI closed. No automatic model actions, internet, shell, messaging or file overwrites.',
 ].join('\n');
 
 function formatNotes(notes) {
@@ -52,7 +55,7 @@ function formatTaskResult(result, reference) {
 }
 
 export class AssistantController {
-  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null, fileWorkspace = null, learningJournal = null, privateContext = null, progressInterview = null }) {
+  constructor({ session, memory, calendar, profileState, model, embeddingModel, voice = null, statusText = () => '', timeZone = 'Africa/Nairobi', clock = () => new Date(), phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null, fileWorkspace = null, learningJournal = null, privateContext = null, progressInterview = null, backgroundAgent = null, trainingJournal = null }) {
     this.session = session;
     this.memory = memory;
     this.calendar = calendar;
@@ -73,6 +76,8 @@ export class AssistantController {
     this.learningJournal = learningJournal;
     this.privateContext = privateContext;
     this.progressInterview = progressInterview;
+    this.backgroundAgent = backgroundAgent;
+    this.trainingJournal = trainingJournal;
     this.lastLearningDraft = null;
     this.fileCommands = fileWorkspace ? new FileCommands({ files: fileWorkspace }) : null;
     this.voiceReplies = false;
@@ -172,6 +177,8 @@ export class AssistantController {
       const learning = await this.handleLearning(line);
       if (learning) return learning;
     }
+    if (this.backgroundAgent && lower.startsWith('/background')) return backgroundCommand(this.backgroundAgent, line);
+    if (this.trainingJournal && lower.startsWith('/train')) return trainingCommand(this.trainingJournal, line);
     if (['/help','/menu','/commands'].includes(lower)) return { text: HELP };
     if (lower === '/status') return { text: this.statusText() };
     if (lower === '/model') return { text: `Local chat: ${this.model}. Embeddings: ${this.embeddingModel}.` };

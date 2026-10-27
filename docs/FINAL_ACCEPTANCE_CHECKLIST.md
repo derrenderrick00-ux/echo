@@ -62,3 +62,17 @@ git push
 ```
 
 Do not stage the locally modified `Echo_Master_Document.md` without reviewing it. Confirm `git diff --cached --name-only` contains no private files; if it does, unstage them and investigate. Do not force push. Optional release tag after live acceptance: `git tag -a v0.3.4 -m "Echo user-accepted v0.3.4" && git push origin v0.3.4`.
+
+## v0.4 supplementary release gates (not automatically passed)
+
+- [ ] Confirm test suite and routing evaluation pass on Ubuntu Node 24.
+- [ ] Approve one background tasks report and verify systemd executes it with CLI closed.
+- [ ] Confirm pause/delete prevents further reports and verify one report/day.
+- [ ] Review the background worker's local-only permissions and audit logs.
+- [ ] Curate a consent-reviewed, fact-checked dataset; verify 80/20 train/holdout split.
+- [ ] On a CUDA host, run actual LoRA fine-tuning and record adapter, validation loss and hardware usage.
+- [ ] Compare original and tuned model on independent held-out accuracy tests before deployment.
+- [ ] Run Ubuntu privacy/security, dependency audit, historical Git review and real inference benchmarks.
+- [ ] Keep high-impact autonomous actions disabled until independent security approval.
+
+See `BACKGROUND_AUTONOMY.md`, `FINE_TUNING_PIPELINE.md`, and `SECURITY_PERFORMANCE_ACCEPTANCE.md`.

@@ -37,3 +37,9 @@ docs/private/
 *.local.md
 echo-*.txt
 config/*.private.json
+
+# Accidental GPU training artifacts
+*.safetensors
+adapter_config.json
+checkpoint-*/
+private-lora-run/

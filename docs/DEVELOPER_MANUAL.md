@@ -184,3 +184,11 @@ git push
 ```
 
 A release tag is appropriate **only after** verifying the actual hardware and data migration, not merely because the code compiles. Keep the existing repository history; never force push or rewrite history without explicit authorization and a backup. Older Git objects may still contain private information even when HEAD no longer does; audit and handle that separately with the maintainer's permission.
+
+## v0.4 engineering addendum
+
+`src/core/background-agent.js` implements a deliberately restricted unattended reporting capability. Scheduler state is private JSON at `data/echo-background.json` with strict validation, TTL-bounded ephemeral proposals, per-day idempotency, and append-only capped success/failure summaries. `scripts/background-tick.js` runs in a one-shot Node process outside the chat CLI. `systemd/echo-background.*` and `scripts/install-background-timer.sh` provide the optional user timer. No LLM calls or external network calls exist in that worker. A JSON store is not transactional across CLI/timer edits; review this before extending autonomy.
+
+`src/core/training-journal.js` handles private approved prompt/completion pairs and train/eval export. `training/train_lora.py` performs actual LoRA optimization only when a compatible CUDA GPU is available. It does not modify or reload Ollama models. No dataset harvesting or network uploading occurs from Echo. Validation-loss metrics are not a factual correctness score.
+
+`npm run security:check` inspects current Git index, private file permissions and structural issues. `npm run performance:check` measures deterministic arithmetic only. Both produce private machine-readable files. Final security acceptance requires manual privilege, dependency, historical-Git, network, device-sync and recovery reviews.

@@ -2,12 +2,12 @@ import { createInterface } from 'node:readline';
 import { stdin as input, stdout as output } from 'node:process';
 import { AssistantController, HELP } from '../core/assistant.js';
 
-export async function runCli({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null, fileWorkspace = null, learningJournal = null, privateContext = null, progressInterview = null, timeZone = 'Africa/Nairobi' }) {
-  console.log('Echo v0.3.4-rc.1 — Private file creation, context and guided progress interview');
+export async function runCli({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, phase2Workspace = null, codeSandbox = null, actionJournal = null, manualSync = null, dailyReview = null, fileWorkspace = null, learningJournal = null, privateContext = null, progressInterview = null, backgroundAgent = null, trainingJournal = null, timeZone = 'Africa/Nairobi' }) {
+  console.log('Echo v0.4.0-rc.1 — Private file creation, bounded background autonomy and GPU fine-tuning');
   console.log(`Local model: ${model} | Memory embeddings: ${embeddingModel}`);
   console.log(HELP);
   if (!profileState.loaded) console.log('No private profile loaded.');
-  const controller = new AssistantController({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, fileWorkspace, learningJournal, privateContext, progressInterview, timeZone });
+  const controller = new AssistantController({ session, memory, calendar, model, embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, fileWorkspace, learningJournal, privateContext, progressInterview, backgroundAgent, trainingJournal, timeZone });
   const rl = createInterface({ input, output, terminal: Boolean(input.isTTY), prompt: 'you> ' });
   let closed = false;
   let quitting = false;

@@ -163,3 +163,7 @@ SYSTEM "You are Echo. Answer concisely. State uncertainty. Do not claim file cre
 ```
 
 Then run `ollama create echo-concise-local -f Modelfile` and point `ECHO_OLLAMA_MODEL` at the new local tag. This only adjusts default generation parameters/system instructions. It **does not** teach new factual knowledge, guarantee mathematical correctness, or change the base model's weights through additional training. Echo's application-controlled tools and prompts remain the primary source of verified capabilities; evaluate your custom model against the same held-out questions before adopting it. Keep any locally personalized or secret-bearing Modelfile out of public Git.
+
+## v0.4 true fine-tuning workflow
+
+Echo now includes `/train add ... | ...` for explicit, owner-reviewed examples, `npm run finetune:prepare` for private train/holdout JSONL, and `training/train_lora.py` for parameter-efficient model **weight** training on compatible CUDA hardware. That script has not been run against the user's hardware or model account. Its adapter output is not automatically compatible with an arbitrary Ollama GGUF file; it must match the exact base model and be evaluated/converted/deployed separately. For commands, data handling, licensing, evaluation and warnings, read `FINE_TUNING_PIPELINE.md`.

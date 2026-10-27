@@ -1,8 +1,8 @@
 {
   "name": "echo-personal-agent",
-  "version": "0.3.4-rc.1",
+  "version": "0.4.0-rc.1",
   "private": true,
-  "description": "Echo private learning profile, guided progress interview and smart memory routing",
+  "description": "Permissioned unattended reports, GPU LoRA training pipeline, security and performance acceptance",
   "type": "module",
   "engines": {
     "node": ">=24 <25"
@@ -12,6 +12,12 @@
     "test": "node --test",
     "benchmark": "node scripts/benchmark-models.js",
     "test:record": "node scripts/record-quality-run.js",
-    "evaluate": "node scripts/evaluate-intents.js"
+    "evaluate": "node scripts/evaluate-intents.js",
+    "background:tick": "node scripts/background-tick.js",
+    "finetune:prepare": "node scripts/prepare-finetune.js",
+    "security:check": "node scripts/security-acceptance.js",
+    "performance:check": "node scripts/performance-acceptance.js",
+    "acceptance:preflight": "npm run test:record && npm run evaluate && npm run security:check && npm run performance:check",
+    "acceptance:ollama": "node scripts/ollama-acceptance.js"
   }
 }

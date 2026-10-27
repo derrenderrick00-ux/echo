@@ -20,6 +20,8 @@ import { FileWorkspace } from './core/file-workspace.js';
 import { LearningJournal } from './core/learning-journal.js';
 import { PrivateContext } from './core/private-context.js';
 import { ProgressInterview } from './core/progress-interview.js';
+import { BackgroundAgent } from './core/background-agent.js';
+import { TrainingJournal } from './core/training-journal.js';
 
 export function statusText() {
   return phases.map(({ id, name, status }) => `Phase ${id}: ${name} [${status}]`).join('\n');
@@ -44,10 +46,12 @@ export async function main() {
   const learningJournal = await new LearningJournal({ filePath: resolve(config.root, 'data/echo-learning.json') }).init();
   const privateContext = await new PrivateContext({ filePath: resolve(config.root, 'data/echo-context.json'), seedPath: resolve(config.root, 'data/echo-context-seed.json') }).init();
   const progressInterview = await new ProgressInterview({ secretPath: resolve(config.root, 'data/echo-interview-key.json'), context: privateContext }).init();
+  const backgroundAgent = await new BackgroundAgent({ filePath: resolve(config.root, 'data/echo-background.json'), inboxDir: resolve(config.root, 'data/background-inbox'), timeZone: config.timeZone, memory, calendar, dailyReview }).init();
+  const trainingJournal = await new TrainingJournal({ filePath: resolve(config.root, 'data/training/approved.json') }).init();
   const session = createPhase00({ provider, profile: profileState.profile, memory, maxTurns: config.maxTurns });
   session.learningJournal = learningJournal;
   session.contextProvider = query => [phase2Workspace.promptContext(), privateContext.relevant(query)].filter(Boolean).join('\n');
-  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, fileWorkspace, learningJournal, privateContext, progressInterview, timeZone: config.timeZone });
+  await runCli({ session, memory, calendar, model: config.model, embeddingModel: config.embeddingModel, profileState, statusText, voice, phase2Workspace, codeSandbox, actionJournal, manualSync, dailyReview, fileWorkspace, learningJournal, privateContext, progressInterview, backgroundAgent, trainingJournal, timeZone: config.timeZone });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

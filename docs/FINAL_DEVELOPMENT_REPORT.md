@@ -122,3 +122,8 @@ The existing curated 43/43 routing evaluation measures specific intent examples 
 ## Final position
 
 Echo has reached a useful integrated prototype suitable for structured owner testing. It is **not** a fully autonomous AI agent, a general-purpose verified fact engine, or a model whose weights continuously learn from conversation. The next meaningful improvement is fewer incorrect decisions and false success claims, supported by a measured quality harness, trusted tools, and explicitly updated private context. Public docs describe what was built; the owner maintains the private background and final live acceptance record.
+
+
+## Post-report addendum: v0.4.0-rc.1
+
+The next candidate adds bounded unattended local reports through a user-approved systemd timer, an owner-curated LoRA training pipeline requiring a separate CUDA host, and partial static security and performance preflights. These additions are **not** full autonomy, proof of improved model accuracy, completed fine-tuning, or final production acceptance. Full implementation/limitations are recorded in `V040_RELEASE_NOTES.md`, `BACKGROUND_AUTONOMY.md`, `FINE_TUNING_PIPELINE.md` and `SECURITY_PERFORMANCE_ACCEPTANCE.md`.

@@ -239,3 +239,9 @@ An automated test result proves only the tested scenario. The curated intent-rou
 ## 12. Release safety
 
 Before committing, run `git diff --cached --name-only` and `git check-ignore` for the private data. Never `git add -f data`. The private seed must be placed only under `data/` on the user's laptop, not under public `docs/`. Inspect generated code and keep the interactive interview combination confidential. Detailed engineering and model-improvement documentation is in the adjacent manuals.
+
+## v0.4 addendum — Unattended local reports and training examples
+
+- `/background help` shows supported local job types and approval flow. `/background schedule tasks 18:00` proposes a daily task report at 18:00 Africa/Nairobi; `/background confirm REAL_ID` approves it. This does not activate systemd; use `bash scripts/install-background-timer.sh` from Ubuntu to start the timer. Reports are stored privately in `data/background-inbox/`. See `BACKGROUND_AUTONOMY.md`.
+- `/train add Explain a router. | A router forwards packets between networks.` proposes a curated training example; `/train confirm REAL_ID` saves it after review. `/train list` displays active examples. Saving examples does **not** train Ollama. See `FINE_TUNING_PIPELINE.md`.
+- The optional offline acceptance scripts are `npm run security:check` and `npm run performance:check`. Neither proves arbitrary model accuracy or guarantees security. See `SECURITY_PERFORMANCE_ACCEPTANCE.md`.
